@@ -36,6 +36,30 @@ jobs:
             flutter create . --platforms=android
           fi
 
+      - name: Patch Android launch behavior
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text(encoding='utf-8')
+
+          # Prevent launcher taps from creating a second app instance/task.
+          text = re.sub(
+              r'android:launchMode="[^"]+"',
+              'android:launchMode="singleTask"',
+              text,
+              count=1,
+          ) if 'android:launchMode=' in text else text.replace(
+              '<activity\n            android:name=".MainActivity"',
+              '<activity\n            android:name=".MainActivity"\n            android:launchMode="singleTask"',
+          )
+
+          manifest.write_text(text, encoding='utf-8')
+          print(manifest.read_text(encoding='utf-8'))
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 
