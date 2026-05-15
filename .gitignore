@@ -1,0 +1,33 @@
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Generated platform files can be rebuilt with flutter create .
+# Keep android/ and ios/ tracked after we intentionally generate them.
+
+# Local datasets and generated indexes
+data/*
+!data/README.md
+*.sqlite
+*.sqlite3
+*.db
+*.jsonl
+!examples/tiny_recipes.jsonl
+
+# Runtime/imported recipe databases
+app_storage/
+.recipe_search_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
