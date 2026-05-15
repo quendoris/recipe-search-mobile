@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 class RecipeRecord {
@@ -139,9 +138,12 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   }
 
   void _handleSystemBack() {
-    if (!_goBackOneStep()) {
-      SystemNavigator.pop();
-    }
+    if (_goBackOneStep()) return;
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Вы уже на главном экране. Чтобы свернуть приложение, используйте кнопку Домой.')),
+    );
   }
 
   Future<Directory> _datasetsDirectory() async {
