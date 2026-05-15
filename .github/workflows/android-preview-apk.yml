@@ -71,7 +71,7 @@ jobs:
           python -m pip install --quiet pillow
           python - <<'PY'
           from pathlib import Path
-          from PIL import Image, ImageDraw, ImageFilter
+          from PIL import Image, ImageDraw
 
           res = Path('android/app/src/main/res')
           densities = {
@@ -93,12 +93,14 @@ jobs:
                       c1 = (108, 53, 255)
                       c2 = (236, 52, 200)
                       c3 = (255, 107, 134)
+
                       if t < 0.58:
                           k = t / 0.58
                           base = tuple(int(c1[i] * (1 - k) + c2[i] * k) for i in range(3))
                       else:
                           k = (t - 0.58) / 0.42
                           base = tuple(int(c2[i] * (1 - k) + c3[i] * k) for i in range(3))
+
                       cx = nx - 0.52
                       cy = ny - 0.42
                       glow = max(0, 1 - (cx * cx + cy * cy) / 0.23)
@@ -113,70 +115,29 @@ jobs:
               draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=r, fill=255)
               return mask
 
-          def draw_hat(canvas, scale=1.0, shadow=True, offset_y=0.0, vertical_scale=1.0):
-              size = canvas.size[0]
-              draw = ImageDraw.Draw(canvas, 'RGBA')
-              s = size * scale
-              cx = size / 2
-              raw_top_y = size * (0.22 + offset_y)
-              raw_bottom_y = size * (0.75 + offset_y)
-              top_y = raw_top_y
-              bottom_y = raw_top_y + (raw_bottom_y - raw_top_y) * vertical_scale
-              white = (255, 255, 255, 255)
-              shade = (222, 201, 238, 190)
-
-              if shadow:
-                  shadow_layer = Image.new('RGBA', canvas.size, (0, 0, 0, 0))
-                  sd = ImageDraw.Draw(shadow_layer, 'RGBA')
-                  sd.ellipse([cx - s*0.34, top_y + s*0.16, cx - s*0.01, top_y + s*0.49], fill=(64, 18, 92, 90))
-                  sd.ellipse([cx + s*0.01, top_y + s*0.16, cx + s*0.34, top_y + s*0.49], fill=(64, 18, 92, 90))
-                  sd.ellipse([cx - s*0.22, top_y, cx + s*0.22, top_y + s*0.45], fill=(64, 18, 92, 95))
-                  sd.rounded_rectangle([cx - s*0.26, bottom_y - s*0.12, cx + s*0.26, bottom_y + s*0.03], radius=int(s*0.045), fill=(64, 18, 92, 110))
-                  shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=max(1, int(size*0.018))))
-                  canvas.alpha_composite(shadow_layer)
-
-              draw.ellipse([cx - s*0.21, top_y, cx + s*0.21, top_y + s*0.43], fill=white)
-              draw.ellipse([cx - s*0.38, top_y + s*0.13, cx - s*0.04, top_y + s*0.49], fill=white)
-              draw.ellipse([cx + s*0.04, top_y + s*0.13, cx + s*0.38, top_y + s*0.49], fill=white)
-              body = [
-                  (cx - s*0.29, top_y + s*0.37),
-                  (cx - s*0.23, bottom_y - s*0.11),
-                  (cx + s*0.23, bottom_y - s*0.11),
-                  (cx + s*0.29, top_y + s*0.37),
-              ]
-              draw.polygon(body, fill=white)
-              draw.rounded_rectangle([cx - s*0.31, bottom_y - s*0.12, cx + s*0.31, bottom_y + s*0.045], radius=int(s*0.055), fill=white)
-              draw.arc([cx - s*0.27, top_y + s*0.31, cx - s*0.03, bottom_y - s*0.03], 170, 250, fill=shade, width=max(1, int(size*0.012)))
-              draw.arc([cx + s*0.03, top_y + s*0.31, cx + s*0.27, bottom_y - s*0.03], -70, 10, fill=shade, width=max(1, int(size*0.012)))
-              draw.line([cx - s*0.28, bottom_y - s*0.12, cx + s*0.28, bottom_y - s*0.12], fill=(211, 184, 229, 170), width=max(1, int(size*0.012)))
-
           def full_icon(size, rounded=True):
               bg = gradient(size)
-              icon = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-              icon.alpha_composite(bg)
-              # Legacy icons are often shown by APK installers/file managers and can be masked again by the OS.
-              # Keep the chef hat intentionally modest so it reads as a full symbol, not a cropped fragment.
-              draw_hat(icon, scale=0.36, shadow=True, offset_y=0.25, vertical_scale=0.72)
               if rounded:
                   mask = rounded_mask(size)
                   out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-                  out.paste(icon, (0, 0), mask)
+                  out.paste(bg, (0, 0), mask)
                   return out
-              return icon
+              return bg
 
+          # Legacy launcher icons: gradient only, no chef hat.
           for folder, size in densities.items():
               target = res / folder
               target.mkdir(parents=True, exist_ok=True)
               full_icon(size, rounded=True).save(target / 'ic_launcher.png')
               full_icon(size, rounded=False).save(target / 'ic_launcher_round.png')
 
-          # Adaptive icon foreground with real alpha transparency and generous Android safe-zone padding.
+          # Adaptive foreground: fully transparent.
           fg_dir = res / 'drawable-nodpi'
           fg_dir.mkdir(parents=True, exist_ok=True)
           fg = Image.new('RGBA', (432, 432), (0, 0, 0, 0))
-          draw_hat(fg, scale=0.34, shadow=False, offset_y=0.27, vertical_scale=0.72)
           fg.save(fg_dir / 'ic_launcher_foreground.png')
 
+          # Adaptive background: purple-pink gradient.
           bg_dir = res / 'drawable'
           bg_dir.mkdir(parents=True, exist_ok=True)
           (bg_dir / 'ic_launcher_background.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>\n<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n    <gradient\n        android:type="linear"\n        android:angle="45"\n        android:startColor="#6F35FF"\n        android:centerColor="#EC34C8"\n        android:endColor="#FF6B86" />\n</shape>\n''', encoding='utf-8')
@@ -187,7 +148,7 @@ jobs:
           (anydpi / 'ic_launcher.xml').write_text(adaptive, encoding='utf-8')
           (anydpi / 'ic_launcher_round.xml').write_text(adaptive, encoding='utf-8')
 
-          print('Launcher icon resources patched: compact legacy icon + compact adaptive foreground')
+          print('Launcher icon resources patched: gradient-only icon, no chef hat')
           PY
 
       - name: Install dependencies
@@ -202,11 +163,11 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-debug.apk dist/recipe-search-mobile-v0.1.2-android-preview.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk dist/recipe-search-mobile-v0.1.3-android-preview.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: recipe-search-mobile-v0.1.2-android-preview-apk
-          path: dist/recipe-search-mobile-v0.1.2-android-preview.apk
+          name: recipe-search-mobile-v0.1.3-android-preview-apk
+          path: dist/recipe-search-mobile-v0.1.3-android-preview.apk
           if-no-files-found: error
