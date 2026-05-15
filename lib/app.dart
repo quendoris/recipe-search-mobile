@@ -6,12 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 class RecipeRecord {
-  const RecipeRecord({
-    required this.id,
-    required this.title,
-    required this.ingredients,
-    required this.instructions,
-  });
+  const RecipeRecord({required this.id, required this.title, required this.ingredients, required this.instructions});
 
   final String id;
   final String title;
@@ -23,12 +18,7 @@ class RecipeRecord {
 }
 
 class ConnectedDataset {
-  const ConnectedDataset({
-    required this.originalName,
-    required this.localPath,
-    required this.sizeBytes,
-    required this.kind,
-  });
+  const ConnectedDataset({required this.originalName, required this.localPath, required this.sizeBytes, required this.kind});
 
   final String originalName;
   final String localPath;
@@ -58,13 +48,8 @@ const demoRecipes = <RecipeRecord>[
   RecipeRecord(id: 'ru_demo_003', title: 'Омлет с помидором и сыром', ingredients: ['яйца', 'молоко', 'помидор', 'сыр', 'соль'], instructions: ['Взбейте яйца с молоком.', 'Добавьте помидор и сыр.', 'Готовьте на слабом огне.']),
   RecipeRecord(id: 'ru_demo_004', title: 'Гречка с грибами', ingredients: ['гречка', 'шампиньоны', 'лук', 'сливочное масло', 'соль'], instructions: ['Отварите гречку.', 'Обжарьте грибы с луком.', 'Смешайте с гречкой.']),
   RecipeRecord(id: 'ru_demo_005', title: 'Фузилли с томатным соусом', ingredients: ['фузилли', 'томатный соус', 'чеснок', 'пармезан', 'орегано'], instructions: ['Отварите пасту.', 'Разогрейте соус.', 'Смешайте и посыпьте пармезаном.']),
-  RecipeRecord(id: 'ru_demo_006', title: 'Салат с авокадо и красным луком', ingredients: ['авокадо', 'красный лук', 'помидор', 'лимонный сок', 'соль'], instructions: ['Нарежьте овощи.', 'Добавьте лимонный сок и соль.', 'Перемешайте.']),
-  RecipeRecord(id: 'ru_demo_007', title: 'Рис с креветками', ingredients: ['рис', 'креветки', 'чеснок', 'соевый соус', 'растительное масло'], instructions: ['Отварите рис.', 'Обжарьте креветки.', 'Добавьте соевый соус.']),
-  RecipeRecord(id: 'ru_demo_008', title: 'Картофель с беконом', ingredients: ['картофель', 'бекон', 'лук', 'соль', 'перец'], instructions: ['Нарежьте картофель.', 'Обжарьте бекон.', 'Готовьте вместе до мягкости.']),
-  RecipeRecord(id: 'ru_demo_009', title: 'Пармезановый рис', ingredients: ['рис', 'пармезан', 'сливочное масло', 'соль'], instructions: ['Отварите рис.', 'Добавьте масло.', 'Перемешайте с пармезаном.']),
-  RecipeRecord(id: 'ru_demo_010', title: 'Острый чили с фасолью', ingredients: ['фасоль', 'чили', 'томатный соус', 'лук', 'чеснок'], instructions: ['Обжарьте лук и чеснок.', 'Добавьте фасоль и соус.', 'Тушите до густоты.']),
-  RecipeRecord(id: 'ru_demo_011', title: 'Курица с соусом барбекю', ingredients: ['куриная грудка', 'соус барбекю', 'соль', 'перец'], instructions: ['Натрите курицу специями.', 'Смажьте соусом.', 'Запекайте до готовности.']),
-  RecipeRecord(id: 'ru_demo_012', title: 'Рисовый салат с огурцом', ingredients: ['рис', 'огурец', 'зелень', 'лимонный сок', 'соль'], instructions: ['Остудите рис.', 'Добавьте огурец и зелень.', 'Заправьте лимонным соком.']),
+  RecipeRecord(id: 'ru_demo_006', title: 'Рис с креветками', ingredients: ['рис', 'креветки', 'чеснок', 'соевый соус', 'растительное масло'], instructions: ['Отварите рис.', 'Обжарьте креветки.', 'Добавьте соевый соус.']),
+  RecipeRecord(id: 'ru_demo_007', title: 'Курица с соусом барбекю', ingredients: ['куриная грудка', 'соус барбекю', 'соль', 'перец'], instructions: ['Натрите курицу специями.', 'Смажьте соусом.', 'Запекайте до готовности.']),
 ];
 
 class RecipeSearchApp extends StatelessWidget {
@@ -104,7 +89,6 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   final includeController = TextEditingController();
   final excludeController = TextEditingController();
   final scrollController = ScrollController();
-
   final includeIngredients = <String>['рис'];
   final excludeIngredients = <String>['орехи'];
   final shownRecipes = <RecipeRecord>[];
@@ -118,6 +102,9 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   bool jsonlEndReached = false;
   bool searchRunning = false;
 
+  bool get datasetReady => dataset != null || datasetStatus == 'demo';
+  bool get usingDemo => datasetStatus == 'demo' || dataset == null;
+
   @override
   void dispose() {
     queryController.dispose();
@@ -126,9 +113,6 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     scrollController.dispose();
     super.dispose();
   }
-
-  bool get datasetReady => dataset != null || datasetStatus == 'demo';
-  bool get usingDemo => datasetStatus == 'demo' || dataset == null;
 
   Future<void> _pickAndCopyDataset() async {
     setState(() {
@@ -140,8 +124,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
 
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jsonl', 'sqlite', 'sqlite3', 'db'],
+        type: FileType.any,
         withData: false,
       );
 
@@ -152,8 +135,14 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
 
       final picked = result.files.single;
       final sourcePath = picked.path;
+      final displayName = picked.name.isEmpty ? sourcePath?.split(Platform.pathSeparator).last ?? 'recipes_dataset' : picked.name;
+
+      if (!_isSupportedDatasetFile(displayName) && (sourcePath == null || !_isSupportedDatasetFile(sourcePath))) {
+        throw const FileSystemException('Выберите файл .jsonl, .sqlite, .sqlite3 или .db.');
+      }
+
       if (sourcePath == null) {
-        throw const FileSystemException('Не удалось получить путь к выбранному файлу. На Android это может потребовать отдельного SAF-режима.');
+        throw const FileSystemException('Система не дала прямой путь к файлу. Для этого источника понадобится отдельный SAF/URI-режим.');
       }
 
       final source = File(sourcePath);
@@ -161,7 +150,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       final docs = await getApplicationDocumentsDirectory();
       final datasetsDir = Directory('${docs.path}/datasets');
       await datasetsDir.create(recursive: true);
-      final destination = File('${datasetsDir.path}/${_safeFileName(picked.name)}');
+      final destination = File('${datasetsDir.path}/${_safeFileName(displayName)}');
       final sink = destination.openWrite();
       var copied = 0;
 
@@ -174,7 +163,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       await sink.close();
 
       setState(() {
-        dataset = ConnectedDataset(originalName: picked.name, localPath: destination.path, sizeBytes: total, kind: _datasetKind(picked.name));
+        dataset = ConnectedDataset(originalName: displayName, localPath: destination.path, sizeBytes: total, kind: _datasetKind(displayName));
         datasetStatus = 'ready';
         copyProgress = 1;
         jsonlOffset = 0;
@@ -218,7 +207,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
 
     try {
       if (usingDemo) {
-        final matches = _filterDemoRecipes();
+        final matches = demoRecipes.where((recipe) => _matchesFilters(recipe, queryController.text, includeIngredients, excludeIngredients)).toList();
         final nextCount = reset ? pageSize : shownRecipes.length + pageSize;
         setState(() {
           shownRecipes
@@ -231,7 +220,6 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
 
       final activeDataset = dataset;
       if (activeDataset == null) return;
-
       if (!activeDataset.isJsonl) {
         setState(() {
           shownRecipes.clear();
@@ -264,10 +252,6 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     }
   }
 
-  List<RecipeRecord> _filterDemoRecipes() {
-    return demoRecipes.where((recipe) => _matchesFilters(recipe, queryController.text, includeIngredients, excludeIngredients)).toList();
-  }
-
   void _addChip(TextEditingController controller, List<String> target) {
     final value = controller.text.trim();
     if (value.isEmpty) return;
@@ -286,9 +270,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: datasetReady && selectedRecipe == null
-          ? FloatingActionButton.small(onPressed: _scrollToTop, tooltip: 'Наверх', child: const Icon(Icons.keyboard_arrow_up_rounded))
-          : null,
+      floatingActionButton: datasetReady && selectedRecipe == null ? FloatingActionButton.small(onPressed: _scrollToTop, tooltip: 'Наверх', child: const Icon(Icons.keyboard_arrow_up_rounded)) : null,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -395,31 +377,25 @@ class DatasetConnectView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SectionTitle(icon: Icons.storage_rounded, title: 'База рецептов', subtitle: 'Выберите JSONL/SQLite. JSONL уже читается построчно; SQLite будет подключён отдельным быстрым поисковым слоем.'),
+              const _SectionTitle(icon: Icons.storage_rounded, title: 'База рецептов', subtitle: 'Выберите файл датасета. JSONL читается построчно; SQLite будет подключён следующим слоем.'),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: const Color(0xFFF1EEFF), borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFDAD2FF))),
                 child: Column(
                   children: [
-                    const Row(
-                      children: [
-                        _IconBubble(icon: Icons.upload_file_rounded),
-                        SizedBox(width: 12),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text('Подключить датасет', style: TextStyle(fontWeight: FontWeight.w800)),
-                          SizedBox(height: 3),
-                          Text('.jsonl, .sqlite, .sqlite3, .db', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                        ])),
-                      ],
-                    ),
+                    const Row(children: [
+                      _IconBubble(icon: Icons.upload_file_rounded),
+                      SizedBox(width: 12),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Подключить датасет', style: TextStyle(fontWeight: FontWeight.w800)),
+                        SizedBox(height: 3),
+                        Text('.jsonl, .sqlite, .sqlite3, .db', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                      ])),
+                    ]),
                     const SizedBox(height: 16),
                     if (busy)
-                      _ProgressBox(
-                        title: status == 'picking' ? 'Открытие выбора файла' : 'Копирование в хранилище приложения',
-                        value: status == 'picking' ? null : progress,
-                        trailing: status == 'picking' ? 'ожидание' : '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
-                      )
+                      _ProgressBox(title: status == 'picking' ? 'Открытие выбора файла' : 'Копирование в хранилище приложения', value: status == 'picking' ? null : progress, trailing: status == 'picking' ? 'ожидание' : '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%')
                     else ...[
                       FilledButton(onPressed: onPickDataset, style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: const Text('Выбрать файл датасета')),
                       const SizedBox(height: 10),
@@ -430,7 +406,7 @@ class DatasetConnectView extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const Row(children: [Expanded(child: _StatTile(value: '10+', label: 'догрузка')), SizedBox(width: 8), Expanded(child: _StatTile(value: 'JSONL', label: 'построчно')), SizedBox(width: 8), Expanded(child: _StatTile(value: 'SQLite', label: 'следом'))]),
+              const Row(children: [Expanded(child: _StatTile(value: 'ANY', label: 'выбор')), SizedBox(width: 8), Expanded(child: _StatTile(value: 'JSONL', label: 'построчно')), SizedBox(width: 8), Expanded(child: _StatTile(value: 'SQLite', label: 'следом'))]),
             ],
           ),
         ),
@@ -492,43 +468,35 @@ class SearchView extends StatelessWidget {
         _DatasetStatusPanel(dataset: dataset, onChangeDataset: onChangeDataset),
         if (datasetError != null) ...[const SizedBox(height: 12), _ErrorBox(message: datasetError!)],
         const SizedBox(height: 12),
-        _Panel(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            TextField(
-              controller: queryController,
-              decoration: InputDecoration(hintText: 'Название или текст рецепта', prefixIcon: const Icon(Icons.search_rounded), filled: true, fillColor: const Color(0xFFF4F6FB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none)),
-              onSubmitted: (_) => onQueryChanged(),
-            ),
-            const SizedBox(height: 10),
-            FilledButton.tonal(onPressed: onQueryChanged, child: const Text('Искать заново')),
-            const SizedBox(height: 16),
-            _ChipEditor(title: 'Нужные ингредиенты', controller: includeController, chips: includeIngredients, tone: _ChipTone.include, onAdd: onAddInclude, onRemove: onRemoveInclude),
-            const SizedBox(height: 14),
-            _ChipEditor(title: 'Исключить', controller: excludeController, chips: excludeIngredients, tone: _ChipTone.exclude, onAdd: onAddExclude, onRemove: onRemoveExclude),
-          ]),
-        ),
+        _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TextField(controller: queryController, decoration: InputDecoration(hintText: 'Название или текст рецепта', prefixIcon: const Icon(Icons.search_rounded), filled: true, fillColor: const Color(0xFFF4F6FB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none)), onSubmitted: (_) => onQueryChanged()),
+          const SizedBox(height: 10),
+          FilledButton.tonal(onPressed: onQueryChanged, child: const Text('Искать заново')),
+          const SizedBox(height: 16),
+          _ChipEditor(title: 'Нужные ингредиенты', controller: includeController, chips: includeIngredients, tone: _ChipTone.include, onAdd: onAddInclude, onRemove: onRemoveInclude),
+          const SizedBox(height: 14),
+          _ChipEditor(title: 'Исключить', controller: excludeController, chips: excludeIngredients, tone: _ChipTone.exclude, onAdd: onAddExclude, onRemove: onRemoveExclude),
+        ])),
         const SizedBox(height: 14),
-        _Panel(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Найденные рецепты', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                Text('Показано ${recipes.length}. Далее добавляет вниз.', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-              ])),
-              const SizedBox(width: 8),
-              _SmallPill(label: 'по 10'),
-            ]),
-            const SizedBox(height: 12),
-            if (recipes.isEmpty && searchRunning)
-              const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator()))
-            else if (recipes.isEmpty)
-              const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: Text('Ничего не найдено. Попробуй изменить фильтры.', style: TextStyle(color: Colors.black54))))
-            else
-              ...recipes.map((recipe) => RecipeResultCard(recipe: recipe, onTap: () => onOpenRecipe(recipe))),
-            const SizedBox(height: 10),
-            FilledButton(onPressed: canLoadMore ? onLoadMore : null, style: FilledButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text(searchRunning ? 'Поиск...' : endReached ? 'Больше результатов нет' : 'Далее: показать ещё 10')),
+        _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Найденные рецепты', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              Text('Показано ${recipes.length}. Далее добавляет вниз.', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+            ])),
+            const SizedBox(width: 8),
+            _SmallPill(label: 'по 10'),
           ]),
-        ),
+          const SizedBox(height: 12),
+          if (recipes.isEmpty && searchRunning)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator()))
+          else if (recipes.isEmpty)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: Text('Ничего не найдено. Попробуй изменить фильтры.', style: TextStyle(color: Colors.black54))))
+          else
+            ...recipes.map((recipe) => RecipeResultCard(recipe: recipe, onTap: () => onOpenRecipe(recipe))),
+          const SizedBox(height: 10),
+          FilledButton(onPressed: canLoadMore ? onLoadMore : null, style: FilledButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text(searchRunning ? 'Поиск...' : endReached ? 'Больше результатов нет' : 'Далее: показать ещё 10')),
+        ])),
       ],
     );
   }
@@ -570,29 +538,19 @@ class RecipeResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const _IconBubble(icon: Icons.restaurant_menu_rounded),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(recipe.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 5),
-              Text(recipe.ingredientsPreview, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.35)),
-              const SizedBox(height: 8),
-              Wrap(spacing: 6, runSpacing: 6, children: recipe.ingredients.take(3).map((item) => _FilterChip(label: item, tone: _ChipTone.neutral)).toList()),
-            ])),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right_rounded, color: Colors.black38),
-          ]),
-        ),
-      ),
-    );
+    return Card(margin: const EdgeInsets.only(bottom: 10), child: InkWell(borderRadius: BorderRadius.circular(24), onTap: onTap, child: Padding(padding: const EdgeInsets.all(14), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const _IconBubble(icon: Icons.restaurant_menu_rounded),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(recipe.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 5),
+        Text(recipe.ingredientsPreview, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.35)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 6, runSpacing: 6, children: recipe.ingredients.take(3).map((item) => _FilterChip(label: item, tone: _ChipTone.neutral)).toList()),
+      ])),
+      const SizedBox(width: 4),
+      const Icon(Icons.chevron_right_rounded, color: Colors.black38),
+    ]))));
   }
 }
 
@@ -659,28 +617,18 @@ class _FilterChip extends StatelessWidget {
       _ChipTone.neutral => (bg: const Color(0xFFF1F5F9), fg: const Color(0xFF475569)),
     };
     final maxWidth = (MediaQuery.sizeOf(context).width * 0.62).clamp(120.0, 260.0).toDouble();
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: maxWidth),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(color: colors.bg, borderRadius: BorderRadius.circular(999)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: colors.fg, fontWeight: FontWeight.w700))),
-          if (onRemove != null) ...[const SizedBox(width: 4), InkWell(onTap: onRemove, child: Icon(Icons.close_rounded, size: 14, color: colors.fg))],
-        ]),
-      ),
-    );
+    return ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: colors.bg, borderRadius: BorderRadius.circular(999)), child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: colors.fg, fontWeight: FontWeight.w700))),
+      if (onRemove != null) ...[const SizedBox(width: 4), InkWell(onTap: onRemove, child: Icon(Icons.close_rounded, size: 14, color: colors.fg))],
+    ])));
   }
 }
 
 class _Panel extends StatelessWidget {
   const _Panel({required this.child});
   final Widget child;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 18, offset: Offset(0, 8))]), child: child);
-  }
+  Widget build(BuildContext context) => Container(width: double.infinity, padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 18, offset: Offset(0, 8))]), child: child);
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -688,29 +636,23 @@ class _SectionTitle extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-
   @override
-  Widget build(BuildContext context) {
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _IconBubble(icon: icon),
-      const SizedBox(width: 10),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 3),
-        Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.35)),
-      ])),
-    ]);
-  }
+  Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _IconBubble(icon: icon),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          const SizedBox(height: 3),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.35)),
+        ])),
+      ]);
 }
 
 class _IconBubble extends StatelessWidget {
   const _IconBubble({required this.icon});
   final IconData icon;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFFEAE5FF), borderRadius: BorderRadius.circular(16)), child: Icon(icon, color: const Color(0xFF5B45F0), size: 20));
-  }
+  Widget build(BuildContext context) => Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: const Color(0xFFEAE5FF), borderRadius: BorderRadius.circular(16)), child: Icon(icon, color: const Color(0xFF5B45F0), size: 20));
 }
 
 class _ProgressBox extends StatelessWidget {
@@ -718,87 +660,61 @@ class _ProgressBox extends StatelessWidget {
   final String title;
   final double? value;
   final String trailing;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Column(children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))), Text(trailing, style: const TextStyle(fontSize: 12, color: Colors.black54))]),
-      const SizedBox(height: 10),
-      ClipRRect(borderRadius: BorderRadius.circular(999), child: LinearProgressIndicator(value: value, minHeight: 8)),
-    ]));
-  }
+  Widget build(BuildContext context) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))), Text(trailing, style: const TextStyle(fontSize: 12, color: Colors.black54))]),
+        const SizedBox(height: 10),
+        ClipRRect(borderRadius: BorderRadius.circular(999), child: LinearProgressIndicator(value: value, minHeight: 8)),
+      ]));
 }
 
 class _StatTile extends StatelessWidget {
   const _StatTile({required this.value, required this.label});
   final String value;
   final String label;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(18)), child: Column(children: [Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.black54))]));
-  }
+  Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(18)), child: Column(children: [Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.black54))]));
 }
 
 class _SmallPill extends StatelessWidget {
   const _SmallPill({required this.label});
   final String label;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0xFFEAE5FF), borderRadius: BorderRadius.circular(999)), child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B45F0))));
-  }
+  Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0xFFEAE5FF), borderRadius: BorderRadius.circular(999)), child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B45F0))));
 }
 
 class _ErrorBox extends StatelessWidget {
   const _ErrorBox({required this.message});
   final String message;
-
   @override
-  Widget build(BuildContext context) {
-    return _Panel(child: Text(message, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C), height: 1.35)));
-  }
+  Widget build(BuildContext context) => _Panel(child: Text(message, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C), height: 1.35)));
 }
 
 class _ListLine extends StatelessWidget {
   const _ListLine({required this.text});
   final String text;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(width: double.infinity, margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(16)), child: Text(text));
-  }
+  Widget build(BuildContext context) => Container(width: double.infinity, margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(16)), child: Text(text));
 }
 
 class _StepLine extends StatelessWidget {
   const _StepLine({required this.index, required this.text});
   final int index;
   final String text;
-
   @override
-  Widget build(BuildContext context) {
-    return Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(16)), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      CircleAvatar(radius: 14, backgroundColor: const Color(0xFFEAE5FF), foregroundColor: const Color(0xFF5B45F0), child: Text('$index', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900))),
-      const SizedBox(width: 10),
-      Expanded(child: Text(text, style: const TextStyle(height: 1.35))),
-    ]));
-  }
+  Widget build(BuildContext context) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(16)), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        CircleAvatar(radius: 14, backgroundColor: const Color(0xFFEAE5FF), foregroundColor: const Color(0xFF5B45F0), child: Text('$index', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900))),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: const TextStyle(height: 1.35))),
+      ]));
 }
 
-Future<JsonlScanResult> _scanJsonl({
-  required File file,
-  required int startOffset,
-  required int limit,
-  required String query,
-  required List<String> include,
-  required List<String> exclude,
-}) async {
+Future<JsonlScanResult> _scanJsonl({required File file, required int startOffset, required int limit, required String query, required List<String> include, required List<String> exclude}) async {
   final raf = await file.open(mode: FileMode.read);
   final matches = <RecipeRecord>[];
   final pending = <int>[];
   var offset = startOffset;
   var reachedEnd = false;
-
   try {
     await raf.setPosition(startOffset);
     while (matches.length < limit) {
@@ -877,6 +793,11 @@ bool _matchesFilters(RecipeRecord recipe, String query, List<String> include, Li
   final includeOk = include.every((item) => ingredients.any((ingredient) => ingredient.contains(_normalize(item))));
   final excludeOk = exclude.every((item) => !ingredients.any((ingredient) => ingredient.contains(_normalize(item))));
   return queryOk && includeOk && excludeOk;
+}
+
+bool _isSupportedDatasetFile(String name) {
+  final lower = name.toLowerCase();
+  return lower.endsWith('.jsonl') || lower.endsWith('.sqlite') || lower.endsWith('.sqlite3') || lower.endsWith('.db');
 }
 
 String _normalize(String value) => value.toLowerCase().replaceAll('ё', 'е').trim();
