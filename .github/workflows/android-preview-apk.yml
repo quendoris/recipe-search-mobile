@@ -154,7 +154,9 @@ jobs:
               bg = gradient(size)
               icon = Image.new('RGBA', (size, size), (0, 0, 0, 0))
               icon.alpha_composite(bg)
-              draw_hat(icon, scale=0.76, shadow=True, offset_y=0.055)
+              # This path is used by APK installers/file managers and older launchers.
+              # Keep it smaller than the adaptive foreground because it is often masked again by the OS.
+              draw_hat(icon, scale=0.50, shadow=True, offset_y=0.16, vertical_scale=0.72)
               if rounded:
                   mask = rounded_mask(size)
                   out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -174,7 +176,7 @@ jobs:
           fg_dir = res / 'drawable-nodpi'
           fg_dir.mkdir(parents=True, exist_ok=True)
           fg = Image.new('RGBA', (432, 432), (0, 0, 0, 0))
-          draw_hat(fg, scale=0.50, shadow=False, offset_y=0.14, vertical_scale=0.72)
+          draw_hat(fg, scale=0.46, shadow=False, offset_y=0.17, vertical_scale=0.72)
           fg.save(fg_dir / 'ic_launcher_foreground.png')
 
           bg_dir = res / 'drawable'
@@ -187,7 +189,7 @@ jobs:
           (anydpi / 'ic_launcher.xml').write_text(adaptive, encoding='utf-8')
           (anydpi / 'ic_launcher_round.xml').write_text(adaptive, encoding='utf-8')
 
-          print('Launcher icon resources patched: adaptive proportional foreground + legacy mipmaps')
+          print('Launcher icon resources patched: smaller legacy icon + adaptive safe-zone foreground')
           PY
 
       - name: Install dependencies
