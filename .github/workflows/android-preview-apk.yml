@@ -38,7 +38,7 @@ jobs:
             flutter create . --platforms=android
           fi
 
-      - name: Patch Android launch behavior
+      - name: Patch Android launch behavior and app label
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -46,6 +46,15 @@ jobs:
 
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           text = manifest.read_text(encoding='utf-8')
+
+          if 'android:label=' in text:
+              text = re.sub(r'android:label="[^"]+"', 'android:label="Рецепты"', text, count=1)
+          else:
+              text = text.replace(
+                  '<application\n        android:theme=',
+                  '<application\n        android:label="Рецепты"\n        android:theme=',
+                  1,
+              )
 
           if 'android:launchMode=' in text:
               text = re.sub(r'android:launchMode="[^"]+"', 'android:launchMode="singleTask"', text, count=1)
