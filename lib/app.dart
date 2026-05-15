@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 
 class RecipeRecord {
@@ -92,17 +93,28 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   final includeIngredients = <String>['рис'];
   final excludeIngredients = <String>['орехи'];
   final shownRecipes = <RecipeRecord>[];
+  final enabledDatasetPaths = <String>{};
+  final jsonlOffsets = <String, int>{};
 
-  ConnectedDataset? dataset;
+  List<ConnectedDataset> availableDatasets = <ConnectedDataset>[];
   RecipeRecord? selectedRecipe;
-  String datasetStatus = 'empty';
+  String datasetStatus = 'loading';
   String? datasetError;
   double copyProgress = 0;
-  int jsonlOffset = 0;
+  int activeDatasetIndex = 0;
   bool jsonlEndReached = false;
   bool searchRunning = false;
+  bool libraryLoaded = false;
+  bool manageDatasets = false;
 
-  bool get datasetReady => dataset != null;
+  List<ConnectedDataset> get enabledDatasets => availableDatasets.where((dataset) => enabledDatasetPaths.contains(dataset.localPath)).toList();
+  bool get datasetReady => enabledDatasets.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreDatasetLibrary();
+  }
 
   @override
   void dispose() {
@@ -113,22 +125,125 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     super.dispose();
   }
 
+  bool _goBackOneStep() {
+    if (selectedRecipe != null) {
+      setState(() => selectedRecipe = null);
+      return true;
+    }
+    if (manageDatasets && datasetReady) {
+      setState(() => manageDatasets = false);
+      _restartSearch();
+      return true;
+    }
+    return false;
+  }
+
+  void _handleSystemBack() {
+    if (!_goBackOneStep()) {
+      SystemNavigator.pop();
+    }
+  }
+
+  Future<Directory> _datasetsDirectory() async {
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory('${docs.path}/datasets');
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  Future<File> _libraryConfigFile() async {
+    final docs = await getApplicationDocumentsDirectory();
+    return File('${docs.path}/dataset_library.json');
+  }
+
+  Future<void> _restoreDatasetLibrary() async {
+    setState(() {
+      datasetStatus = 'loading';
+      datasetError = null;
+    });
+
+    try {
+      final datasets = await _scanStoredDatasets();
+      final config = await _libraryConfigFile();
+      final savedEnabledPaths = <String>{};
+
+      if (await config.exists()) {
+        final raw = jsonDecode(await config.readAsString(encoding: utf8));
+        if (raw is Map<String, dynamic>) {
+          final enabled = raw['enabledDatasetPaths'];
+          if (enabled is List) savedEnabledPaths.addAll(enabled.map((item) => item.toString()));
+        }
+      }
+
+      final existingPaths = datasets.map((dataset) => dataset.localPath).toSet();
+      savedEnabledPaths.removeWhere((path) => !existingPaths.contains(path));
+      if (savedEnabledPaths.isEmpty && datasets.length == 1) savedEnabledPaths.add(datasets.first.localPath);
+
+      setState(() {
+        availableDatasets = datasets;
+        enabledDatasetPaths
+          ..clear()
+          ..addAll(savedEnabledPaths);
+        datasetStatus = 'ready';
+        libraryLoaded = true;
+        manageDatasets = enabledDatasetPaths.isEmpty;
+      });
+
+      await _saveDatasetLibraryConfig();
+      if (enabledDatasetPaths.isNotEmpty) await _restartSearch();
+    } catch (error) {
+      setState(() {
+        datasetStatus = 'error';
+        datasetError = error.toString();
+        libraryLoaded = true;
+        manageDatasets = true;
+      });
+    }
+  }
+
+  Future<List<ConnectedDataset>> _scanStoredDatasets() async {
+    final dir = await _datasetsDirectory();
+    final files = await dir
+        .list()
+        .where((entity) => entity is File && _isSupportedDatasetFile(entity.path))
+        .cast<File>()
+        .toList();
+    files.sort((a, b) => a.path.toLowerCase().compareTo(b.path.toLowerCase()));
+
+    final datasets = <ConnectedDataset>[];
+    for (final file in files) {
+      final name = file.path.split(Platform.pathSeparator).last;
+      datasets.add(ConnectedDataset(originalName: name, localPath: file.path, sizeBytes: await file.length(), kind: _datasetKind(name)));
+    }
+    return datasets;
+  }
+
+  Future<void> _saveDatasetLibraryConfig() async {
+    final config = await _libraryConfigFile();
+    await config.writeAsString(jsonEncode({'enabledDatasetPaths': enabledDatasetPaths.toList()}), encoding: utf8, flush: true);
+  }
+
+  Future<void> _refreshStoredDatasets() async {
+    final datasets = await _scanStoredDatasets();
+    final existingPaths = datasets.map((dataset) => dataset.localPath).toSet();
+    setState(() {
+      availableDatasets = datasets;
+      enabledDatasetPaths.removeWhere((path) => !existingPaths.contains(path));
+    });
+    await _saveDatasetLibraryConfig();
+  }
+
   Future<void> _pickAndCopyDataset() async {
     setState(() {
       datasetStatus = 'picking';
       datasetError = null;
       copyProgress = 0;
-      shownRecipes.clear();
     });
 
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        withData: false,
-      );
-
+      final result = await FilePicker.platform.pickFiles(type: FileType.any, withData: false);
       if (result == null || result.files.isEmpty) {
-        setState(() => datasetStatus = dataset == null ? 'empty' : 'ready');
+        setState(() => datasetStatus = 'ready');
         return;
       }
 
@@ -139,16 +254,13 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       if (!_isSupportedDatasetFile(displayName) && (sourcePath == null || !_isSupportedDatasetFile(sourcePath))) {
         throw const FileSystemException('Выберите файл .jsonl, .sqlite, .sqlite3 или .db.');
       }
-
       if (sourcePath == null) {
         throw const FileSystemException('Система не дала прямой путь к файлу. Для этого источника понадобится отдельный SAF/URI-режим.');
       }
 
       final source = File(sourcePath);
       final total = await source.length();
-      final docs = await getApplicationDocumentsDirectory();
-      final datasetsDir = Directory('${docs.path}/datasets');
-      await datasetsDir.create(recursive: true);
+      final datasetsDir = await _datasetsDirectory();
       final destination = File('${datasetsDir.path}/${_safeFileName(displayName)}');
       final sink = destination.openWrite();
       var copied = 0;
@@ -161,20 +273,14 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       }
       await sink.close();
 
+      await _refreshStoredDatasets();
       setState(() {
-        dataset = ConnectedDataset(
-          originalName: displayName,
-          localPath: destination.path,
-          sizeBytes: total,
-          kind: _datasetKind(displayName),
-        );
+        enabledDatasetPaths.add(destination.path);
         datasetStatus = 'ready';
         copyProgress = 1;
-        jsonlOffset = 0;
-        jsonlEndReached = false;
-        shownRecipes.clear();
+        manageDatasets = false;
       });
-
+      await _saveDatasetLibraryConfig();
       await _restartSearch();
     } catch (error) {
       setState(() {
@@ -184,46 +290,74 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     }
   }
 
+  Future<void> _toggleDataset(ConnectedDataset dataset, bool enabled) async {
+    setState(() {
+      if (enabled) {
+        enabledDatasetPaths.add(dataset.localPath);
+      } else {
+        enabledDatasetPaths.remove(dataset.localPath);
+      }
+      manageDatasets = enabledDatasetPaths.isEmpty;
+    });
+    await _saveDatasetLibraryConfig();
+    await _restartSearch();
+  }
+
   Future<void> _restartSearch() async {
     setState(() {
       shownRecipes.clear();
-      jsonlOffset = 0;
-      jsonlEndReached = false;
+      jsonlOffsets.clear();
+      activeDatasetIndex = 0;
+      jsonlEndReached = enabledDatasets.isEmpty;
     });
-    await _loadMoreResults(reset: true);
+    if (enabledDatasets.isNotEmpty) await _loadMoreResults(reset: true);
   }
 
   Future<void> _loadMoreResults({bool reset = false}) async {
     if (searchRunning) return;
+    if (enabledDatasets.isEmpty) {
+      setState(() => jsonlEndReached = true);
+      return;
+    }
+
     setState(() => searchRunning = true);
 
     try {
-      final activeDataset = dataset;
-      if (activeDataset == null) return;
+      final matches = <RecipeRecord>[];
+      final datasets = enabledDatasets;
+      var datasetIndex = reset ? 0 : activeDatasetIndex;
+      if (reset) jsonlOffsets.clear();
 
-      if (!activeDataset.isJsonl) {
-        setState(() {
-          shownRecipes.clear();
-          datasetError = 'SQLite выбран и скопирован. SQLite-поиск подключим следующим слоем; сейчас реальный поиск работает для JSONL.';
-          jsonlEndReached = true;
-        });
-        return;
+      while (matches.length < pageSize && datasetIndex < datasets.length) {
+        final activeDataset = datasets[datasetIndex];
+        if (!activeDataset.isJsonl) {
+          datasetIndex += 1;
+          continue;
+        }
+
+        final scan = await _scanJsonl(
+          file: File(activeDataset.localPath),
+          startOffset: jsonlOffsets[activeDataset.localPath] ?? 0,
+          limit: pageSize - matches.length,
+          query: queryController.text,
+          include: includeIngredients,
+          exclude: excludeIngredients,
+        );
+
+        matches.addAll(scan.matches);
+        jsonlOffsets[activeDataset.localPath] = scan.nextOffset;
+        if (scan.reachedEnd) {
+          datasetIndex += 1;
+        } else {
+          break;
+        }
       }
-
-      final scan = await _scanJsonl(
-        file: File(activeDataset.localPath),
-        startOffset: reset ? 0 : jsonlOffset,
-        limit: pageSize,
-        query: queryController.text,
-        include: includeIngredients,
-        exclude: excludeIngredients,
-      );
 
       setState(() {
         if (reset) shownRecipes.clear();
-        shownRecipes.addAll(scan.matches);
-        jsonlOffset = scan.nextOffset;
-        jsonlEndReached = scan.reachedEnd;
+        shownRecipes.addAll(matches);
+        activeDatasetIndex = datasetIndex;
+        jsonlEndReached = datasetIndex >= datasets.length;
         datasetError = null;
       });
     } catch (error) {
@@ -250,69 +384,78 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: datasetReady && selectedRecipe == null
-          ? FloatingActionButton.small(
-              onPressed: _scrollToTop,
-              tooltip: 'Наверх',
-              child: const Icon(Icons.keyboard_arrow_up_rounded),
-            )
-          : null,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _AppHeader(),
-                  const SizedBox(height: 16),
-                  Expanded(
-                    child: selectedRecipe != null
-                        ? RecipeDetailView(recipe: selectedRecipe!, onBack: () => setState(() => selectedRecipe = null))
-                        : datasetReady
-                            ? SearchView(
-                                scrollController: scrollController,
-                                dataset: dataset,
-                                datasetError: datasetError,
-                                queryController: queryController,
-                                includeController: includeController,
-                                excludeController: excludeController,
-                                includeIngredients: includeIngredients,
-                                excludeIngredients: excludeIngredients,
-                                recipes: shownRecipes,
-                                searchRunning: searchRunning,
-                                endReached: jsonlEndReached,
-                                onQueryChanged: _restartSearch,
-                                onAddInclude: () => _addChip(includeController, includeIngredients),
-                                onAddExclude: () => _addChip(excludeController, excludeIngredients),
-                                onRemoveInclude: (item) {
-                                  setState(() => includeIngredients.remove(item));
-                                  _restartSearch();
-                                },
-                                onRemoveExclude: (item) {
-                                  setState(() => excludeIngredients.remove(item));
-                                  _restartSearch();
-                                },
-                                onLoadMore: () => _loadMoreResults(),
-                                onOpenRecipe: (recipe) => setState(() => selectedRecipe = recipe),
-                                onChangeDataset: () => setState(() {
-                                  dataset = null;
-                                  datasetStatus = 'empty';
-                                  datasetError = null;
-                                  shownRecipes.clear();
-                                }),
-                              )
-                            : DatasetConnectView(
-                                status: datasetStatus,
-                                progress: copyProgress,
-                                error: datasetError,
-                                onPickDataset: _pickAndCopyDataset,
-                              ),
-                  ),
-                ],
+    if (!libraryLoaded) {
+      return const Scaffold(body: SafeArea(child: Center(child: CircularProgressIndicator())));
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) _handleSystemBack();
+      },
+      child: Scaffold(
+        floatingActionButton: datasetReady && selectedRecipe == null && !manageDatasets
+            ? FloatingActionButton.small(onPressed: _scrollToTop, tooltip: 'Наверх', child: const Icon(Icons.keyboard_arrow_up_rounded))
+            : null,
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _AppHeader(),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: selectedRecipe != null
+                          ? RecipeDetailView(recipe: selectedRecipe!, onBack: () => setState(() => selectedRecipe = null))
+                          : manageDatasets || !datasetReady
+                              ? DatasetConnectView(
+                                  availableDatasets: availableDatasets,
+                                  enabledDatasetPaths: enabledDatasetPaths,
+                                  status: datasetStatus,
+                                  progress: copyProgress,
+                                  error: datasetError,
+                                  canOpenSearch: datasetReady,
+                                  onPickDataset: _pickAndCopyDataset,
+                                  onToggleDataset: _toggleDataset,
+                                  onOpenSearch: () {
+                                    setState(() => manageDatasets = false);
+                                    _restartSearch();
+                                  },
+                                )
+                              : SearchView(
+                                  scrollController: scrollController,
+                                  enabledDatasets: enabledDatasets,
+                                  datasetError: datasetError,
+                                  queryController: queryController,
+                                  includeController: includeController,
+                                  excludeController: excludeController,
+                                  includeIngredients: includeIngredients,
+                                  excludeIngredients: excludeIngredients,
+                                  recipes: shownRecipes,
+                                  searchRunning: searchRunning,
+                                  endReached: jsonlEndReached,
+                                  onQueryChanged: _restartSearch,
+                                  onAddInclude: () => _addChip(includeController, includeIngredients),
+                                  onAddExclude: () => _addChip(excludeController, excludeIngredients),
+                                  onRemoveInclude: (item) {
+                                    setState(() => includeIngredients.remove(item));
+                                    _restartSearch();
+                                  },
+                                  onRemoveExclude: (item) {
+                                    setState(() => excludeIngredients.remove(item));
+                                    _restartSearch();
+                                  },
+                                  onLoadMore: () => _loadMoreResults(),
+                                  onOpenRecipe: (recipe) => setState(() => selectedRecipe = recipe),
+                                  onManageDatasets: () => setState(() => manageDatasets = true),
+                                ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -331,14 +474,11 @@ class _AppHeader extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         const Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('RECIPE SEARCH', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2, color: Color(0xFF6D5DF6))),
-              SizedBox(height: 4),
-              Text('Поиск рецептов', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-            ],
-          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('RECIPE SEARCH', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2, color: Color(0xFF6D5DF6))),
+            SizedBox(height: 4),
+            Text('Поиск рецептов', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+          ]),
         ),
         const SizedBox(width: 12),
         Container(
@@ -352,70 +492,101 @@ class _AppHeader extends StatelessWidget {
 }
 
 class DatasetConnectView extends StatelessWidget {
-  const DatasetConnectView({super.key, required this.status, required this.progress, required this.error, required this.onPickDataset});
+  const DatasetConnectView({
+    super.key,
+    required this.availableDatasets,
+    required this.enabledDatasetPaths,
+    required this.status,
+    required this.progress,
+    required this.error,
+    required this.canOpenSearch,
+    required this.onPickDataset,
+    required this.onToggleDataset,
+    required this.onOpenSearch,
+  });
 
+  final List<ConnectedDataset> availableDatasets;
+  final Set<String> enabledDatasetPaths;
   final String status;
   final double progress;
   final String? error;
+  final bool canOpenSearch;
   final VoidCallback onPickDataset;
+  final Future<void> Function(ConnectedDataset dataset, bool enabled) onToggleDataset;
+  final VoidCallback onOpenSearch;
 
   @override
   Widget build(BuildContext context) {
     final busy = status == 'picking' || status == 'copying';
-    return ListView(
-      children: [
-        _Panel(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _SectionTitle(
-                icon: Icons.storage_rounded,
-                title: 'База рецептов',
-                subtitle: 'Выберите файл датасета. JSONL читается построчно; SQLite будет подключён следующим слоем.',
-              ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: const Color(0xFFF1EEFF), borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFDAD2FF))),
-                child: Column(
-                  children: [
-                    const Row(
-                      children: [
-                        _IconBubble(icon: Icons.upload_file_rounded),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Подключить датасет', style: TextStyle(fontWeight: FontWeight.w800)),
-                              SizedBox(height: 3),
-                              Text('.jsonl, .sqlite, .sqlite3, .db', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    if (busy)
-                      _ProgressBox(
-                        title: status == 'picking' ? 'Открытие выбора файла' : 'Копирование в хранилище приложения',
-                        value: status == 'picking' ? null : progress,
-                        trailing: status == 'picking' ? 'ожидание' : '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
-                      )
-                    else
-                      FilledButton(
-                        onPressed: onPickDataset,
-                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-                        child: const Text('Выбрать файл датасета'),
-                      ),
-                    if (error != null) ...[const SizedBox(height: 12), _ErrorBox(message: error!)],
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return ListView(children: [
+      _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const _SectionTitle(
+          icon: Icons.storage_rounded,
+          title: 'Библиотека датасетов',
+          subtitle: 'Добавляйте JSONL/SQLite-файлы один раз. Скопированные датасеты сохраняются в приложении и могут включаться в общий поиск.',
         ),
-      ],
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: const Color(0xFFF1EEFF), borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFDAD2FF))),
+          child: Column(children: [
+            const Row(children: [
+              _IconBubble(icon: Icons.upload_file_rounded),
+              SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Добавить датасет', style: TextStyle(fontWeight: FontWeight.w800)),
+                SizedBox(height: 3),
+                Text('.jsonl, .sqlite, .sqlite3, .db', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              ])),
+            ]),
+            const SizedBox(height: 16),
+            if (busy)
+              _ProgressBox(
+                title: status == 'picking' ? 'Открытие выбора файла' : 'Копирование в хранилище приложения',
+                value: status == 'picking' ? null : progress,
+                trailing: status == 'picking' ? 'ожидание' : '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
+              )
+            else
+              FilledButton(onPressed: onPickDataset, style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: const Text('Выбрать файл датасета')),
+            if (error != null) ...[const SizedBox(height: 12), _ErrorBox(message: error!)],
+          ]),
+        ),
+        const SizedBox(height: 16),
+        const Text('Доступные датасеты', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 10),
+        if (availableDatasets.isEmpty)
+          const _HintBox(text: 'Пока нет сохранённых датасетов. Нажмите «Выбрать файл датасета», чтобы добавить первый JSONL-файл.')
+        else
+          ...availableDatasets.map((dataset) => DatasetTile(dataset: dataset, enabled: enabledDatasetPaths.contains(dataset.localPath), onChanged: (value) { onToggleDataset(dataset, value); })),
+        const SizedBox(height: 12),
+        FilledButton(onPressed: canOpenSearch ? onOpenSearch : null, style: FilledButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: const Text('Перейти к поиску')),
+      ])),
+    ]);
+  }
+}
+
+class DatasetTile extends StatelessWidget {
+  const DatasetTile({super.key, required this.dataset, required this.enabled, required this.onChanged});
+
+  final ConnectedDataset dataset;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(18)),
+      child: Row(children: [
+        Checkbox(value: enabled, onChanged: (value) => onChanged(value ?? false)),
+        const SizedBox(width: 6),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(dataset.originalName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text('${dataset.kind} · ${dataset.sizeLabel}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+        ])),
+      ]),
     );
   }
 }
@@ -424,7 +595,7 @@ class SearchView extends StatelessWidget {
   const SearchView({
     super.key,
     required this.scrollController,
-    required this.dataset,
+    required this.enabledDatasets,
     required this.datasetError,
     required this.queryController,
     required this.includeController,
@@ -441,11 +612,11 @@ class SearchView extends StatelessWidget {
     required this.onRemoveExclude,
     required this.onLoadMore,
     required this.onOpenRecipe,
-    required this.onChangeDataset,
+    required this.onManageDatasets,
   });
 
   final ScrollController scrollController;
-  final ConnectedDataset? dataset;
+  final List<ConnectedDataset> enabledDatasets;
   final String? datasetError;
   final TextEditingController queryController;
   final TextEditingController includeController;
@@ -462,48 +633,45 @@ class SearchView extends StatelessWidget {
   final ValueChanged<String> onRemoveExclude;
   final VoidCallback onLoadMore;
   final ValueChanged<RecipeRecord> onOpenRecipe;
-  final VoidCallback onChangeDataset;
+  final VoidCallback onManageDatasets;
 
   @override
   Widget build(BuildContext context) {
     final canLoadMore = !searchRunning && !endReached;
-    return ListView(
-      controller: scrollController,
-      children: [
-        _DatasetStatusPanel(dataset: dataset, onChangeDataset: onChangeDataset),
-        if (datasetError != null) ...[const SizedBox(height: 12), _ErrorBox(message: datasetError!)],
-        const SizedBox(height: 12),
-        _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          TextField(controller: queryController, decoration: InputDecoration(hintText: 'Название или текст рецепта', prefixIcon: const Icon(Icons.search_rounded), filled: true, fillColor: const Color(0xFFF4F6FB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none)), onSubmitted: (_) => onQueryChanged()),
-          const SizedBox(height: 10),
-          FilledButton.tonal(onPressed: onQueryChanged, child: const Text('Искать заново')),
-          const SizedBox(height: 16),
-          _ChipEditor(title: 'Нужные ингредиенты', controller: includeController, chips: includeIngredients, tone: _ChipTone.include, onAdd: onAddInclude, onRemove: onRemoveInclude),
-          const SizedBox(height: 14),
-          _ChipEditor(title: 'Исключить', controller: excludeController, chips: excludeIngredients, tone: _ChipTone.exclude, onAdd: onAddExclude, onRemove: onRemoveExclude),
-        ])),
+    return ListView(controller: scrollController, children: [
+      _DatasetStatusPanel(enabledDatasets: enabledDatasets, onManageDatasets: onManageDatasets),
+      if (datasetError != null) ...[const SizedBox(height: 12), _ErrorBox(message: datasetError!)],
+      const SizedBox(height: 12),
+      _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        TextField(controller: queryController, decoration: InputDecoration(hintText: 'Название или текст рецепта', prefixIcon: const Icon(Icons.search_rounded), filled: true, fillColor: const Color(0xFFF4F6FB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none)), onSubmitted: (_) => onQueryChanged()),
+        const SizedBox(height: 10),
+        FilledButton.tonal(onPressed: onQueryChanged, child: const Text('Искать заново')),
+        const SizedBox(height: 16),
+        _ChipEditor(title: 'Нужные ингредиенты', controller: includeController, chips: includeIngredients, tone: _ChipTone.include, onAdd: onAddInclude, onRemove: onRemoveInclude),
         const SizedBox(height: 14),
-        _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Найденные рецепты', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-              Text('Показано ${recipes.length}. Далее добавляет вниз.', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-            ])),
-            const SizedBox(width: 8),
-            _SmallPill(label: 'по 10'),
-          ]),
-          const SizedBox(height: 12),
-          if (recipes.isEmpty && searchRunning)
-            const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator()))
-          else if (recipes.isEmpty)
-            const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: Text('Ничего не найдено. Попробуй изменить фильтры.', style: TextStyle(color: Colors.black54))))
-          else
-            ...recipes.map((recipe) => RecipeResultCard(recipe: recipe, onTap: () => onOpenRecipe(recipe))),
-          const SizedBox(height: 10),
-          FilledButton(onPressed: canLoadMore ? onLoadMore : null, style: FilledButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text(searchRunning ? 'Поиск...' : endReached ? 'Больше результатов нет' : 'Далее: показать ещё 10')),
-        ])),
-      ],
-    );
+        _ChipEditor(title: 'Исключить', controller: excludeController, chips: excludeIngredients, tone: _ChipTone.exclude, onAdd: onAddExclude, onRemove: onRemoveExclude),
+      ])),
+      const SizedBox(height: 14),
+      _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Найденные рецепты', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            Text('Показано ${recipes.length}. Далее добавляет вниз.', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          ])),
+          const SizedBox(width: 8),
+          _SmallPill(label: 'по 10'),
+        ]),
+        const SizedBox(height: 12),
+        if (recipes.isEmpty && searchRunning)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator()))
+        else if (recipes.isEmpty)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: Text('Ничего не найдено. Попробуй изменить фильтры.', style: TextStyle(color: Colors.black54))))
+        else
+          ...recipes.map((recipe) => RecipeResultCard(recipe: recipe, onTap: () => onOpenRecipe(recipe))),
+        const SizedBox(height: 10),
+        FilledButton(onPressed: canLoadMore ? onLoadMore : null, style: FilledButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text(searchRunning ? 'Поиск...' : endReached ? 'Больше результатов нет' : 'Далее: показать ещё 10')),
+      ])),
+    ]);
   }
 }
 
@@ -560,14 +728,14 @@ class RecipeResultCard extends StatelessWidget {
 }
 
 class _DatasetStatusPanel extends StatelessWidget {
-  const _DatasetStatusPanel({required this.dataset, required this.onChangeDataset});
-  final ConnectedDataset? dataset;
-  final VoidCallback onChangeDataset;
+  const _DatasetStatusPanel({required this.enabledDatasets, required this.onManageDatasets});
+  final List<ConnectedDataset> enabledDatasets;
+  final VoidCallback onManageDatasets;
 
   @override
   Widget build(BuildContext context) {
-    final title = dataset?.originalName ?? 'Датасет не выбран';
-    final subtitle = dataset == null ? 'Выберите JSONL-файл рецептов' : '${dataset!.kind} · ${dataset!.sizeLabel} · скопирован в приложение';
+    final title = enabledDatasets.length == 1 ? enabledDatasets.first.originalName : 'Включено датасетов: ${enabledDatasets.length}';
+    final subtitle = enabledDatasets.length == 1 ? '${enabledDatasets.first.kind} · ${enabledDatasets.first.sizeLabel}' : enabledDatasets.map((dataset) => dataset.originalName).join(', ');
     return _Panel(child: Row(children: [
       const _IconBubble(icon: Icons.folder_copy_rounded),
       const SizedBox(width: 12),
@@ -576,7 +744,7 @@ class _DatasetStatusPanel extends StatelessWidget {
         const SizedBox(height: 3),
         Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
       ])),
-      TextButton(onPressed: onChangeDataset, child: const Text('сменить')),
+      TextButton(onPressed: onManageDatasets, child: const Text('датасеты')),
     ]));
   }
 }
@@ -673,6 +841,13 @@ class _ErrorBox extends StatelessWidget {
   final String message;
   @override
   Widget build(BuildContext context) => _Panel(child: Text(message, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C), height: 1.35)));
+}
+
+class _HintBox extends StatelessWidget {
+  const _HintBox({required this.text});
+  final String text;
+  @override
+  Widget build(BuildContext context) => Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(18)), child: Text(text, style: const TextStyle(fontSize: 13, color: Colors.black54, height: 1.35)));
 }
 
 class _ListLine extends StatelessWidget {
