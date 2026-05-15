@@ -6,7 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 class RecipeRecord {
-  const RecipeRecord({required this.id, required this.title, required this.ingredients, required this.instructions});
+  const RecipeRecord({
+    required this.id,
+    required this.title,
+    required this.ingredients,
+    required this.instructions,
+  });
 
   final String id;
   final String title;
@@ -18,7 +23,12 @@ class RecipeRecord {
 }
 
 class ConnectedDataset {
-  const ConnectedDataset({required this.originalName, required this.localPath, required this.sizeBytes, required this.kind});
+  const ConnectedDataset({
+    required this.originalName,
+    required this.localPath,
+    required this.sizeBytes,
+    required this.kind,
+  });
 
   final String originalName;
   final String localPath;
@@ -41,16 +51,6 @@ class JsonlScanResult {
   final int nextOffset;
   final bool reachedEnd;
 }
-
-const demoRecipes = <RecipeRecord>[
-  RecipeRecord(id: 'ru_demo_001', title: 'Куриная грудка с рисом и брокколи', ingredients: ['куриная грудка', 'рис', 'брокколи', 'соль', 'оливковое масло'], instructions: ['Отварите рис до мягкости.', 'Запеките куриную грудку.', 'Брокколи приготовьте на пару.', 'Соедините ингредиенты.']),
-  RecipeRecord(id: 'ru_demo_002', title: 'Овсянка с бананом', ingredients: ['овсянка', 'молоко', 'банан', 'корица'], instructions: ['Залейте овсянку молоком.', 'Варите до мягкости.', 'Добавьте банан и корицу.']),
-  RecipeRecord(id: 'ru_demo_003', title: 'Омлет с помидором и сыром', ingredients: ['яйца', 'молоко', 'помидор', 'сыр', 'соль'], instructions: ['Взбейте яйца с молоком.', 'Добавьте помидор и сыр.', 'Готовьте на слабом огне.']),
-  RecipeRecord(id: 'ru_demo_004', title: 'Гречка с грибами', ingredients: ['гречка', 'шампиньоны', 'лук', 'сливочное масло', 'соль'], instructions: ['Отварите гречку.', 'Обжарьте грибы с луком.', 'Смешайте с гречкой.']),
-  RecipeRecord(id: 'ru_demo_005', title: 'Фузилли с томатным соусом', ingredients: ['фузилли', 'томатный соус', 'чеснок', 'пармезан', 'орегано'], instructions: ['Отварите пасту.', 'Разогрейте соус.', 'Смешайте и посыпьте пармезаном.']),
-  RecipeRecord(id: 'ru_demo_006', title: 'Рис с креветками', ingredients: ['рис', 'креветки', 'чеснок', 'соевый соус', 'растительное масло'], instructions: ['Отварите рис.', 'Обжарьте креветки.', 'Добавьте соевый соус.']),
-  RecipeRecord(id: 'ru_demo_007', title: 'Курица с соусом барбекю', ingredients: ['куриная грудка', 'соус барбекю', 'соль', 'перец'], instructions: ['Натрите курицу специями.', 'Смажьте соусом.', 'Запекайте до готовности.']),
-];
 
 class RecipeSearchApp extends StatelessWidget {
   const RecipeSearchApp({super.key});
@@ -102,8 +102,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   bool jsonlEndReached = false;
   bool searchRunning = false;
 
-  bool get datasetReady => dataset != null || datasetStatus == 'demo';
-  bool get usingDemo => datasetStatus == 'demo' || dataset == null;
+  bool get datasetReady => dataset != null;
 
   @override
   void dispose() {
@@ -163,7 +162,12 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       await sink.close();
 
       setState(() {
-        dataset = ConnectedDataset(originalName: displayName, localPath: destination.path, sizeBytes: total, kind: _datasetKind(displayName));
+        dataset = ConnectedDataset(
+          originalName: displayName,
+          localPath: destination.path,
+          sizeBytes: total,
+          kind: _datasetKind(displayName),
+        );
         datasetStatus = 'ready';
         copyProgress = 1;
         jsonlOffset = 0;
@@ -180,18 +184,6 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     }
   }
 
-  Future<void> _useDemoDataset() async {
-    setState(() {
-      dataset = null;
-      datasetStatus = 'demo';
-      datasetError = null;
-      jsonlOffset = 0;
-      jsonlEndReached = true;
-      shownRecipes.clear();
-    });
-    await _restartSearch();
-  }
-
   Future<void> _restartSearch() async {
     setState(() {
       shownRecipes.clear();
@@ -206,20 +198,9 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     setState(() => searchRunning = true);
 
     try {
-      if (usingDemo) {
-        final matches = demoRecipes.where((recipe) => _matchesFilters(recipe, queryController.text, includeIngredients, excludeIngredients)).toList();
-        final nextCount = reset ? pageSize : shownRecipes.length + pageSize;
-        setState(() {
-          shownRecipes
-            ..clear()
-            ..addAll(matches.take(nextCount));
-          jsonlEndReached = shownRecipes.length >= matches.length;
-        });
-        return;
-      }
-
       final activeDataset = dataset;
       if (activeDataset == null) return;
+
       if (!activeDataset.isJsonl) {
         setState(() {
           shownRecipes.clear();
@@ -270,7 +251,13 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: datasetReady && selectedRecipe == null ? FloatingActionButton.small(onPressed: _scrollToTop, tooltip: 'Наверх', child: const Icon(Icons.keyboard_arrow_up_rounded)) : null,
+      floatingActionButton: datasetReady && selectedRecipe == null
+          ? FloatingActionButton.small(
+              onPressed: _scrollToTop,
+              tooltip: 'Наверх',
+              child: const Icon(Icons.keyboard_arrow_up_rounded),
+            )
+          : null,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -318,7 +305,12 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
                                   shownRecipes.clear();
                                 }),
                               )
-                            : DatasetConnectView(status: datasetStatus, progress: copyProgress, error: datasetError, onPickDataset: _pickAndCopyDataset, onUseDemo: _useDemoDataset),
+                            : DatasetConnectView(
+                                status: datasetStatus,
+                                progress: copyProgress,
+                                error: datasetError,
+                                onPickDataset: _pickAndCopyDataset,
+                              ),
                   ),
                 ],
               ),
@@ -360,13 +352,12 @@ class _AppHeader extends StatelessWidget {
 }
 
 class DatasetConnectView extends StatelessWidget {
-  const DatasetConnectView({super.key, required this.status, required this.progress, required this.error, required this.onPickDataset, required this.onUseDemo});
+  const DatasetConnectView({super.key, required this.status, required this.progress, required this.error, required this.onPickDataset});
 
   final String status;
   final double progress;
   final String? error;
   final VoidCallback onPickDataset;
-  final VoidCallback onUseDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -377,36 +368,50 @@ class DatasetConnectView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SectionTitle(icon: Icons.storage_rounded, title: 'База рецептов', subtitle: 'Выберите файл датасета. JSONL читается построчно; SQLite будет подключён следующим слоем.'),
+              const _SectionTitle(
+                icon: Icons.storage_rounded,
+                title: 'База рецептов',
+                subtitle: 'Выберите файл датасета. JSONL читается построчно; SQLite будет подключён следующим слоем.',
+              ),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: const Color(0xFFF1EEFF), borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFDAD2FF))),
                 child: Column(
                   children: [
-                    const Row(children: [
-                      _IconBubble(icon: Icons.upload_file_rounded),
-                      SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Подключить датасет', style: TextStyle(fontWeight: FontWeight.w800)),
-                        SizedBox(height: 3),
-                        Text('.jsonl, .sqlite, .sqlite3, .db', style: TextStyle(fontSize: 12, color: Colors.black54)),
-                      ])),
-                    ]),
+                    const Row(
+                      children: [
+                        _IconBubble(icon: Icons.upload_file_rounded),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Подключить датасет', style: TextStyle(fontWeight: FontWeight.w800)),
+                              SizedBox(height: 3),
+                              Text('.jsonl, .sqlite, .sqlite3, .db', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
                     if (busy)
-                      _ProgressBox(title: status == 'picking' ? 'Открытие выбора файла' : 'Копирование в хранилище приложения', value: status == 'picking' ? null : progress, trailing: status == 'picking' ? 'ожидание' : '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%')
-                    else ...[
-                      FilledButton(onPressed: onPickDataset, style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: const Text('Выбрать файл датасета')),
-                      const SizedBox(height: 10),
-                      OutlinedButton(onPressed: onUseDemo, style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: const Text('Открыть demo-датасет')),
-                    ],
+                      _ProgressBox(
+                        title: status == 'picking' ? 'Открытие выбора файла' : 'Копирование в хранилище приложения',
+                        value: status == 'picking' ? null : progress,
+                        trailing: status == 'picking' ? 'ожидание' : '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
+                      )
+                    else
+                      FilledButton(
+                        onPressed: onPickDataset,
+                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
+                        child: const Text('Выбрать файл датасета'),
+                      ),
                     if (error != null) ...[const SizedBox(height: 12), _ErrorBox(message: error!)],
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              const Row(children: [Expanded(child: _StatTile(value: 'ANY', label: 'выбор')), SizedBox(width: 8), Expanded(child: _StatTile(value: 'JSONL', label: 'построчно')), SizedBox(width: 8), Expanded(child: _StatTile(value: 'SQLite', label: 'следом'))]),
             ],
           ),
         ),
@@ -561,8 +566,8 @@ class _DatasetStatusPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = dataset?.originalName ?? 'Demo-датасет';
-    final subtitle = dataset == null ? '12 встроенных рецептов для проверки интерфейса' : '${dataset!.kind} · ${dataset!.sizeLabel} · скопирован в приложение';
+    final title = dataset?.originalName ?? 'Датасет не выбран';
+    final subtitle = dataset == null ? 'Выберите JSONL-файл рецептов' : '${dataset!.kind} · ${dataset!.sizeLabel} · скопирован в приложение';
     return _Panel(child: Row(children: [
       const _IconBubble(icon: Icons.folder_copy_rounded),
       const SizedBox(width: 12),
@@ -637,15 +642,7 @@ class _SectionTitle extends StatelessWidget {
   final String title;
   final String subtitle;
   @override
-  Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _IconBubble(icon: icon),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 3),
-          Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.35)),
-        ])),
-      ]);
+  Widget build(BuildContext context) => Row(crossAxisAlignment: CrossAxisAlignment.start, children: [_IconBubble(icon: icon), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.35))]))]);
 }
 
 class _IconBubble extends StatelessWidget {
@@ -661,19 +658,7 @@ class _ProgressBox extends StatelessWidget {
   final double? value;
   final String trailing;
   @override
-  Widget build(BuildContext context) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Column(children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))), Text(trailing, style: const TextStyle(fontSize: 12, color: Colors.black54))]),
-        const SizedBox(height: 10),
-        ClipRRect(borderRadius: BorderRadius.circular(999), child: LinearProgressIndicator(value: value, minHeight: 8)),
-      ]));
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({required this.value, required this.label});
-  final String value;
-  final String label;
-  @override
-  Widget build(BuildContext context) => Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(18)), child: Column(children: [Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.black54))]));
+  Widget build(BuildContext context) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Column(children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))), Text(trailing, style: const TextStyle(fontSize: 12, color: Colors.black54))]), const SizedBox(height: 10), ClipRRect(borderRadius: BorderRadius.circular(999), child: LinearProgressIndicator(value: value, minHeight: 8))]));
 }
 
 class _SmallPill extends StatelessWidget {
@@ -702,11 +687,7 @@ class _StepLine extends StatelessWidget {
   final int index;
   final String text;
   @override
-  Widget build(BuildContext context) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(16)), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        CircleAvatar(radius: 14, backgroundColor: const Color(0xFFEAE5FF), foregroundColor: const Color(0xFF5B45F0), child: Text('$index', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900))),
-        const SizedBox(width: 10),
-        Expanded(child: Text(text, style: const TextStyle(height: 1.35))),
-      ]));
+  Widget build(BuildContext context) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(16)), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [CircleAvatar(radius: 14, backgroundColor: const Color(0xFFEAE5FF), foregroundColor: const Color(0xFF5B45F0), child: Text('$index', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900))), const SizedBox(width: 10), Expanded(child: Text(text, style: const TextStyle(height: 1.35)))]));
 }
 
 Future<JsonlScanResult> _scanJsonl({required File file, required int startOffset, required int limit, required String query, required List<String> include, required List<String> exclude}) async {
