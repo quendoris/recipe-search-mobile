@@ -36,6 +36,7 @@ class ConnectedDataset {
   final String kind;
 
   bool get isJsonl => kind == 'JSONL';
+
   String get sizeLabel {
     final mb = sizeBytes / 1024 / 1024;
     if (mb >= 1024) return '${(mb / 1024).toStringAsFixed(2)} ГБ';
@@ -45,6 +46,7 @@ class ConnectedDataset {
 
 class JsonlScanResult {
   const JsonlScanResult({required this.matches, required this.nextOffset, required this.reachedEnd});
+
   final List<RecipeRecord> matches;
   final int nextOffset;
   final bool reachedEnd;
@@ -285,11 +287,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: datasetReady && selectedRecipe == null
-          ? FloatingActionButton.small(
-              onPressed: _scrollToTop,
-              tooltip: 'Наверх',
-              child: const Icon(Icons.keyboard_arrow_up_rounded),
-            )
+          ? FloatingActionButton.small(onPressed: _scrollToTop, tooltip: 'Наверх', child: const Icon(Icons.keyboard_arrow_up_rounded))
           : null,
       body: SafeArea(
         child: Center(
@@ -338,13 +336,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
                                   shownRecipes.clear();
                                 }),
                               )
-                            : DatasetConnectView(
-                                status: datasetStatus,
-                                progress: copyProgress,
-                                error: datasetError,
-                                onPickDataset: _pickAndCopyDataset,
-                                onUseDemo: _useDemoDataset,
-                              ),
+                            : DatasetConnectView(status: datasetStatus, progress: copyProgress, error: datasetError, onPickDataset: _pickAndCopyDataset, onUseDemo: _useDemoDataset),
                   ),
                 ],
               ),
@@ -364,14 +356,17 @@ class _AppHeader extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('RECIPE SEARCH', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2, color: Color(0xFF6D5DF6))),
-            SizedBox(height: 4),
-            Text('Поиск рецептов', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
-          ],
+        const Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('RECIPE SEARCH', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2, color: Color(0xFF6D5DF6))),
+              SizedBox(height: 4),
+              Text('Поиск рецептов', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+            ],
+          ),
         ),
+        const SizedBox(width: 12),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
@@ -400,11 +395,7 @@ class DatasetConnectView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SectionTitle(
-                icon: Icons.storage_rounded,
-                title: 'База рецептов',
-                subtitle: 'Выберите JSONL/SQLite. JSONL уже читается построчно; SQLite будет подключён отдельным быстрым поисковым слоем.',
-              ),
+              const _SectionTitle(icon: Icons.storage_rounded, title: 'База рецептов', subtitle: 'Выберите JSONL/SQLite. JSONL уже читается построчно; SQLite будет подключён отдельным быстрым поисковым слоем.'),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -430,30 +421,16 @@ class DatasetConnectView extends StatelessWidget {
                         trailing: status == 'picking' ? 'ожидание' : '${(progress * 100).clamp(0, 100).toStringAsFixed(0)}%',
                       )
                     else ...[
-                      FilledButton(
-                        onPressed: onPickDataset,
-                        style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-                        child: const Text('Выбрать файл датасета'),
-                      ),
+                      FilledButton(onPressed: onPickDataset, style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: const Text('Выбрать файл датасета')),
                       const SizedBox(height: 10),
-                      OutlinedButton(
-                        onPressed: onUseDemo,
-                        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
-                        child: const Text('Открыть demo-датасет'),
-                      ),
+                      OutlinedButton(onPressed: onUseDemo, style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))), child: const Text('Открыть demo-датасет')),
                     ],
                     if (error != null) ...[const SizedBox(height: 12), _ErrorBox(message: error!)],
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              const Row(children: [
-                Expanded(child: _StatTile(value: '10+', label: 'догрузка')),
-                SizedBox(width: 8),
-                Expanded(child: _StatTile(value: 'JSONL', label: 'построчно')),
-                SizedBox(width: 8),
-                Expanded(child: _StatTile(value: 'SQLite', label: 'следом')),
-              ]),
+              const Row(children: [Expanded(child: _StatTile(value: '10+', label: 'догрузка')), SizedBox(width: 8), Expanded(child: _StatTile(value: 'JSONL', label: 'построчно')), SizedBox(width: 8), Expanded(child: _StatTile(value: 'SQLite', label: 'следом'))]),
             ],
           ),
         ),
@@ -519,13 +496,7 @@ class SearchView extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             TextField(
               controller: queryController,
-              decoration: InputDecoration(
-                hintText: 'Название или текст рецепта',
-                prefixIcon: const Icon(Icons.search_rounded),
-                filled: true,
-                fillColor: const Color(0xFFF4F6FB),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
-              ),
+              decoration: InputDecoration(hintText: 'Название или текст рецепта', prefixIcon: const Icon(Icons.search_rounded), filled: true, fillColor: const Color(0xFFF4F6FB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none)),
               onSubmitted: (_) => onQueryChanged(),
             ),
             const SizedBox(height: 10),
@@ -540,10 +511,11 @@ class SearchView extends StatelessWidget {
         _Panel(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Найденные рецепты', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                Text('Показано ${recipes.length}. Далее добавляет вниз.', style: const TextStyle(fontSize: 12, color: Colors.black54)),
-              ]),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Найденные рецепты', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                Text('Показано ${recipes.length}. Далее добавляет вниз.', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+              ])),
+              const SizedBox(width: 8),
               _SmallPill(label: 'по 10'),
             ]),
             const SizedBox(height: 12),
@@ -554,11 +526,7 @@ class SearchView extends StatelessWidget {
             else
               ...recipes.map((recipe) => RecipeResultCard(recipe: recipe, onTap: () => onOpenRecipe(recipe))),
             const SizedBox(height: 10),
-            FilledButton(
-              onPressed: canLoadMore ? onLoadMore : null,
-              style: FilledButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-              child: Text(searchRunning ? 'Поиск...' : endReached ? 'Больше результатов нет' : 'Далее: показать ещё 10'),
-            ),
+            FilledButton(onPressed: canLoadMore ? onLoadMore : null, style: FilledButton.styleFrom(backgroundColor: Colors.black, minimumSize: const Size.fromHeight(48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: Text(searchRunning ? 'Поиск...' : endReached ? 'Больше результатов нет' : 'Далее: показать ещё 10')),
           ]),
         ),
       ],
@@ -577,16 +545,11 @@ class RecipeDetailView extends StatelessWidget {
       _Panel(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         OutlinedButton.icon(onPressed: onBack, icon: const Icon(Icons.arrow_back_rounded), label: const Text('Назад к результатам')),
         const SizedBox(height: 14),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(color: const Color(0xFF1D1B2F), borderRadius: BorderRadius.circular(24)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Рецепт · ${recipe.id}', style: const TextStyle(color: Colors.white60, fontSize: 12)),
-            const SizedBox(height: 8),
-            Text(recipe.title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, height: 1.1)),
-          ]),
-        ),
+        Container(width: double.infinity, padding: const EdgeInsets.all(18), decoration: BoxDecoration(color: const Color(0xFF1D1B2F), borderRadius: BorderRadius.circular(24)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Рецепт · ${recipe.id}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+          const SizedBox(height: 8),
+          Text(recipe.title, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, height: 1.1)),
+        ])),
         const SizedBox(height: 18),
         const _SectionTitle(icon: Icons.list_alt_rounded, title: 'Ингредиенты', subtitle: 'Список из подключённого датасета.'),
         const SizedBox(height: 10),
@@ -618,12 +581,13 @@ class RecipeResultCard extends StatelessWidget {
             const _IconBubble(icon: Icons.restaurant_menu_rounded),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(recipe.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              Text(recipe.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
               const SizedBox(height: 5),
               Text(recipe.ingredientsPreview, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.35)),
               const SizedBox(height: 8),
               Wrap(spacing: 6, runSpacing: 6, children: recipe.ingredients.take(3).map((item) => _FilterChip(label: item, tone: _ChipTone.neutral)).toList()),
             ])),
+            const SizedBox(width: 4),
             const Icon(Icons.chevron_right_rounded, color: Colors.black38),
           ]),
         ),
@@ -669,11 +633,7 @@ class _ChipEditor extends StatelessWidget {
       Text(title.toUpperCase(), style: const TextStyle(fontSize: 11, letterSpacing: 0.8, color: Colors.black54, fontWeight: FontWeight.w800)),
       const SizedBox(height: 8),
       Row(children: [
-        Expanded(child: TextField(
-          controller: controller,
-          decoration: InputDecoration(isDense: true, hintText: 'добавить ингредиент', filled: true, fillColor: const Color(0xFFF4F6FB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)),
-          onSubmitted: (_) => onAdd(),
-        )),
+        Expanded(child: TextField(controller: controller, decoration: InputDecoration(isDense: true, hintText: 'добавить ингредиент', filled: true, fillColor: const Color(0xFFF4F6FB), border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)), onSubmitted: (_) => onAdd())),
         const SizedBox(width: 8),
         IconButton.filledTonal(onPressed: onAdd, icon: const Icon(Icons.add_rounded)),
       ]),
@@ -698,13 +658,17 @@ class _FilterChip extends StatelessWidget {
       _ChipTone.exclude => (bg: const Color(0xFFFFEBEE), fg: const Color(0xFFB91C1C)),
       _ChipTone.neutral => (bg: const Color(0xFFF1F5F9), fg: const Color(0xFF475569)),
     };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: colors.bg, borderRadius: BorderRadius.circular(999)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(label, style: TextStyle(fontSize: 12, color: colors.fg, fontWeight: FontWeight.w700)),
-        if (onRemove != null) ...[const SizedBox(width: 4), InkWell(onTap: onRemove, child: Icon(Icons.close_rounded, size: 14, color: colors.fg))],
-      ]),
+    final maxWidth = (MediaQuery.sizeOf(context).width * 0.62).clamp(120.0, 260.0).toDouble();
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(color: colors.bg, borderRadius: BorderRadius.circular(999)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: colors.fg, fontWeight: FontWeight.w700))),
+          if (onRemove != null) ...[const SizedBox(width: 4), InkWell(onTap: onRemove, child: Icon(Icons.close_rounded, size: 14, color: colors.fg))],
+        ]),
+      ),
     );
   }
 }
@@ -731,7 +695,7 @@ class _SectionTitle extends StatelessWidget {
       _IconBubble(icon: icon),
       const SizedBox(width: 10),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+        Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
         const SizedBox(height: 3),
         Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black54, height: 1.35)),
       ])),
@@ -758,7 +722,7 @@ class _ProgressBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)), child: Column(children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700))), Text(trailing, style: const TextStyle(fontSize: 12, color: Colors.black54))]),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700))), Text(trailing, style: const TextStyle(fontSize: 12, color: Colors.black54))]),
       const SizedBox(height: 10),
       ClipRRect(borderRadius: BorderRadius.circular(999), child: LinearProgressIndicator(value: value, minHeight: 8)),
     ]));
@@ -772,7 +736,7 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(18)), child: Column(children: [Text(value, style: const TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54))]));
+    return Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(18)), child: Column(children: [Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900)), const SizedBox(height: 3), Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.black54))]));
   }
 }
 
@@ -782,7 +746,7 @@ class _SmallPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0xFFEAE5FF), borderRadius: BorderRadius.circular(999)), child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B45F0))));
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: const Color(0xFFEAE5FF), borderRadius: BorderRadius.circular(999)), child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF5B45F0))));
   }
 }
 
@@ -847,7 +811,6 @@ Future<JsonlScanResult> _scanJsonl({
         reachedEnd = true;
         break;
       }
-
       for (final byte in chunk) {
         offset += 1;
         if (byte == 10) {
@@ -865,7 +828,6 @@ Future<JsonlScanResult> _scanJsonl({
   } finally {
     await raf.close();
   }
-
   return JsonlScanResult(matches: matches, nextOffset: offset, reachedEnd: reachedEnd);
 }
 
