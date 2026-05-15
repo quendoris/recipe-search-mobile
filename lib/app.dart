@@ -18,11 +18,7 @@ class RecipeRecord {
   final List<String> ingredients;
   final List<String> instructions;
 
-  String get ingredientsPreview {
-    if (ingredients.length <= 5) return ingredients.join(', ');
-    return '${ingredients.take(5).join(', ')}...';
-  }
-
+  String get ingredientsPreview => ingredients.length <= 5 ? ingredients.join(', ') : '${ingredients.take(5).join(', ')}...';
   String get searchableText => '$title ${ingredients.join(' ')} ${instructions.join(' ')}';
 }
 
@@ -39,96 +35,34 @@ class ConnectedDataset {
   final int sizeBytes;
   final String kind;
 
+  bool get isJsonl => kind == 'JSONL';
   String get sizeLabel {
     final mb = sizeBytes / 1024 / 1024;
     if (mb >= 1024) return '${(mb / 1024).toStringAsFixed(2)} ГБ';
     return '${mb.toStringAsFixed(1)} МБ';
   }
-
-  bool get isJsonl => kind == 'JSONL';
 }
 
 class JsonlScanResult {
   const JsonlScanResult({required this.matches, required this.nextOffset, required this.reachedEnd});
-
   final List<RecipeRecord> matches;
   final int nextOffset;
   final bool reachedEnd;
 }
 
 const demoRecipes = <RecipeRecord>[
-  RecipeRecord(
-    id: 'ru_demo_001',
-    title: 'Куриная грудка с рисом и брокколи',
-    ingredients: ['куриная грудка', 'рис', 'брокколи', 'соль', 'оливковое масло'],
-    instructions: ['Отварите рис до мягкости.', 'Запеките куриную грудку.', 'Брокколи приготовьте на пару.', 'Соедините ингредиенты.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_002',
-    title: 'Овсянка с бананом',
-    ingredients: ['овсянка', 'молоко', 'банан', 'корица'],
-    instructions: ['Залейте овсянку молоком.', 'Варите до мягкости.', 'Добавьте банан и корицу.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_003',
-    title: 'Омлет с помидором и сыром',
-    ingredients: ['яйца', 'молоко', 'помидор', 'сыр', 'соль'],
-    instructions: ['Взбейте яйца с молоком.', 'Добавьте помидор и сыр.', 'Готовьте на слабом огне.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_004',
-    title: 'Гречка с грибами',
-    ingredients: ['гречка', 'шампиньоны', 'лук', 'сливочное масло', 'соль'],
-    instructions: ['Отварите гречку.', 'Обжарьте грибы с луком.', 'Смешайте с гречкой.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_005',
-    title: 'Фузилли с томатным соусом',
-    ingredients: ['фузилли', 'томатный соус', 'чеснок', 'пармезан', 'орегано'],
-    instructions: ['Отварите пасту.', 'Разогрейте соус.', 'Смешайте и посыпьте пармезаном.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_006',
-    title: 'Салат с авокадо и красным луком',
-    ingredients: ['авокадо', 'красный лук', 'помидор', 'лимонный сок', 'соль'],
-    instructions: ['Нарежьте овощи.', 'Добавьте лимонный сок и соль.', 'Перемешайте.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_007',
-    title: 'Рис с креветками',
-    ingredients: ['рис', 'креветки', 'чеснок', 'соевый соус', 'растительное масло'],
-    instructions: ['Отварите рис.', 'Обжарьте креветки.', 'Добавьте соевый соус.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_008',
-    title: 'Картофель с беконом',
-    ingredients: ['картофель', 'бекон', 'лук', 'соль', 'перец'],
-    instructions: ['Нарежьте картофель.', 'Обжарьте бекон.', 'Готовьте вместе до мягкости.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_009',
-    title: 'Пармезановый рис',
-    ingredients: ['рис', 'пармезан', 'сливочное масло', 'соль'],
-    instructions: ['Отварите рис.', 'Добавьте масло.', 'Перемешайте с пармезаном.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_010',
-    title: 'Острый чили с фасолью',
-    ingredients: ['фасоль', 'чили', 'томатный соус', 'лук', 'чеснок'],
-    instructions: ['Обжарьте лук и чеснок.', 'Добавьте фасоль и соус.', 'Тушите до густоты.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_011',
-    title: 'Курица с соусом барбекю',
-    ingredients: ['куриная грудка', 'соус барбекю', 'соль', 'перец'],
-    instructions: ['Натрите курицу специями.', 'Смажьте соусом.', 'Запекайте до готовности.'],
-  ),
-  RecipeRecord(
-    id: 'ru_demo_012',
-    title: 'Рисовый салат с огурцом',
-    ingredients: ['рис', 'огурец', 'зелень', 'лимонный сок', 'соль'],
-    instructions: ['Остудите рис.', 'Добавьте огурец и зелень.', 'Заправьте лимонным соком.'],
-  ),
+  RecipeRecord(id: 'ru_demo_001', title: 'Куриная грудка с рисом и брокколи', ingredients: ['куриная грудка', 'рис', 'брокколи', 'соль', 'оливковое масло'], instructions: ['Отварите рис до мягкости.', 'Запеките куриную грудку.', 'Брокколи приготовьте на пару.', 'Соедините ингредиенты.']),
+  RecipeRecord(id: 'ru_demo_002', title: 'Овсянка с бананом', ingredients: ['овсянка', 'молоко', 'банан', 'корица'], instructions: ['Залейте овсянку молоком.', 'Варите до мягкости.', 'Добавьте банан и корицу.']),
+  RecipeRecord(id: 'ru_demo_003', title: 'Омлет с помидором и сыром', ingredients: ['яйца', 'молоко', 'помидор', 'сыр', 'соль'], instructions: ['Взбейте яйца с молоком.', 'Добавьте помидор и сыр.', 'Готовьте на слабом огне.']),
+  RecipeRecord(id: 'ru_demo_004', title: 'Гречка с грибами', ingredients: ['гречка', 'шампиньоны', 'лук', 'сливочное масло', 'соль'], instructions: ['Отварите гречку.', 'Обжарьте грибы с луком.', 'Смешайте с гречкой.']),
+  RecipeRecord(id: 'ru_demo_005', title: 'Фузилли с томатным соусом', ingredients: ['фузилли', 'томатный соус', 'чеснок', 'пармезан', 'орегано'], instructions: ['Отварите пасту.', 'Разогрейте соус.', 'Смешайте и посыпьте пармезаном.']),
+  RecipeRecord(id: 'ru_demo_006', title: 'Салат с авокадо и красным луком', ingredients: ['авокадо', 'красный лук', 'помидор', 'лимонный сок', 'соль'], instructions: ['Нарежьте овощи.', 'Добавьте лимонный сок и соль.', 'Перемешайте.']),
+  RecipeRecord(id: 'ru_demo_007', title: 'Рис с креветками', ingredients: ['рис', 'креветки', 'чеснок', 'соевый соус', 'растительное масло'], instructions: ['Отварите рис.', 'Обжарьте креветки.', 'Добавьте соевый соус.']),
+  RecipeRecord(id: 'ru_demo_008', title: 'Картофель с беконом', ingredients: ['картофель', 'бекон', 'лук', 'соль', 'перец'], instructions: ['Нарежьте картофель.', 'Обжарьте бекон.', 'Готовьте вместе до мягкости.']),
+  RecipeRecord(id: 'ru_demo_009', title: 'Пармезановый рис', ingredients: ['рис', 'пармезан', 'сливочное масло', 'соль'], instructions: ['Отварите рис.', 'Добавьте масло.', 'Перемешайте с пармезаном.']),
+  RecipeRecord(id: 'ru_demo_010', title: 'Острый чили с фасолью', ingredients: ['фасоль', 'чили', 'томатный соус', 'лук', 'чеснок'], instructions: ['Обжарьте лук и чеснок.', 'Добавьте фасоль и соус.', 'Тушите до густоты.']),
+  RecipeRecord(id: 'ru_demo_011', title: 'Курица с соусом барбекю', ingredients: ['куриная грудка', 'соус барбекю', 'соль', 'перец'], instructions: ['Натрите курицу специями.', 'Смажьте соусом.', 'Запекайте до готовности.']),
+  RecipeRecord(id: 'ru_demo_012', title: 'Рисовый салат с огурцом', ingredients: ['рис', 'огурец', 'зелень', 'лимонный сок', 'соль'], instructions: ['Остудите рис.', 'Добавьте огурец и зелень.', 'Заправьте лимонным соком.']),
 ];
 
 class RecipeSearchApp extends StatelessWidget {
@@ -226,29 +160,19 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       final datasetsDir = Directory('${docs.path}/datasets');
       await datasetsDir.create(recursive: true);
       final destination = File('${datasetsDir.path}/${_safeFileName(picked.name)}');
-
       final sink = destination.openWrite();
       var copied = 0;
-      setState(() => datasetStatus = 'copying');
 
+      setState(() => datasetStatus = 'copying');
       await for (final chunk in source.openRead()) {
         copied += chunk.length;
         sink.add(chunk);
-        if (total > 0 && mounted) {
-          setState(() => copyProgress = copied / total);
-        }
+        if (total > 0 && mounted) setState(() => copyProgress = copied / total);
       }
       await sink.close();
 
-      final connected = ConnectedDataset(
-        originalName: picked.name,
-        localPath: destination.path,
-        sizeBytes: total,
-        kind: _datasetKind(picked.name),
-      );
-
       setState(() {
-        dataset = connected;
+        dataset = ConnectedDataset(originalName: picked.name, localPath: destination.path, sizeBytes: total, kind: _datasetKind(picked.name));
         datasetStatus = 'ready';
         copyProgress = 1;
         jsonlOffset = 0;
@@ -293,10 +217,11 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
     try {
       if (usingDemo) {
         final matches = _filterDemoRecipes();
+        final nextCount = reset ? pageSize : shownRecipes.length + pageSize;
         setState(() {
           shownRecipes
             ..clear()
-            ..addAll(matches.take(shownRecipes.length + pageSize));
+            ..addAll(matches.take(nextCount));
           jsonlEndReached = shownRecipes.length >= matches.length;
         });
         return;
@@ -308,7 +233,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       if (!activeDataset.isJsonl) {
         setState(() {
           shownRecipes.clear();
-          datasetError = 'SQLite выбран и скопирован, но SQLite-поиск будет подключён следующим слоем. Сейчас реальный поиск работает для JSONL.';
+          datasetError = 'SQLite выбран и скопирован. SQLite-поиск подключим следующим слоем; сейчас реальный поиск работает для JSONL.';
           jsonlEndReached = true;
         });
         return;
@@ -384,7 +309,6 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
                             ? SearchView(
                                 scrollController: scrollController,
                                 dataset: dataset,
-                                datasetStatus: datasetStatus,
                                 datasetError: datasetError,
                                 queryController: queryController,
                                 includeController: includeController,
@@ -428,6 +352,32 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AppHeader extends StatelessWidget {
+  const _AppHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('RECIPE SEARCH', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2, color: Color(0xFF6D5DF6))),
+            SizedBox(height: 4),
+            Text('Поиск рецептов', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          child: const Text('RU DB', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black54)),
+        ),
+      ],
     );
   }
 }
@@ -517,7 +467,6 @@ class SearchView extends StatelessWidget {
     super.key,
     required this.scrollController,
     required this.dataset,
-    required this.datasetStatus,
     required this.datasetError,
     required this.queryController,
     required this.includeController,
@@ -539,7 +488,6 @@ class SearchView extends StatelessWidget {
 
   final ScrollController scrollController;
   final ConnectedDataset? dataset;
-  final String datasetStatus;
   final String? datasetError;
   final TextEditingController queryController;
   final TextEditingController includeController;
@@ -564,7 +512,7 @@ class SearchView extends StatelessWidget {
     return ListView(
       controller: scrollController,
       children: [
-        _DatasetStatusPanel(dataset: dataset, datasetStatus: datasetStatus, onChangeDataset: onChangeDataset),
+        _DatasetStatusPanel(dataset: dataset, onChangeDataset: onChangeDataset),
         if (datasetError != null) ...[const SizedBox(height: 12), _ErrorBox(message: datasetError!)],
         const SizedBox(height: 12),
         _Panel(
@@ -620,7 +568,6 @@ class SearchView extends StatelessWidget {
 
 class RecipeDetailView extends StatelessWidget {
   const RecipeDetailView({super.key, required this.recipe, required this.onBack});
-
   final RecipeRecord recipe;
   final VoidCallback onBack;
 
@@ -655,7 +602,6 @@ class RecipeDetailView extends StatelessWidget {
 
 class RecipeResultCard extends StatelessWidget {
   const RecipeResultCard({super.key, required this.recipe, required this.onTap});
-
   final RecipeRecord recipe;
   final VoidCallback onTap;
 
@@ -687,10 +633,8 @@ class RecipeResultCard extends StatelessWidget {
 }
 
 class _DatasetStatusPanel extends StatelessWidget {
-  const _DatasetStatusPanel({required this.dataset, required this.datasetStatus, required this.onChangeDataset});
-
+  const _DatasetStatusPanel({required this.dataset, required this.onChangeDataset});
   final ConnectedDataset? dataset;
-  final String datasetStatus;
   final VoidCallback onChangeDataset;
 
   @override
@@ -712,7 +656,6 @@ class _DatasetStatusPanel extends StatelessWidget {
 
 class _ChipEditor extends StatelessWidget {
   const _ChipEditor({required this.title, required this.controller, required this.chips, required this.tone, required this.onAdd, required this.onRemove});
-
   final String title;
   final TextEditingController controller;
   final List<String> chips;
@@ -744,7 +687,6 @@ enum _ChipTone { neutral, include, exclude }
 
 class _FilterChip extends StatelessWidget {
   const _FilterChip({required this.label, required this.tone, this.onRemove});
-
   final String label;
   final _ChipTone tone;
   final VoidCallback? onRemove;
@@ -901,7 +843,6 @@ Future<JsonlScanResult> _scanJsonl({
         if (pending.isNotEmpty) {
           final recipe = _recipeFromLineBytes(pending);
           if (recipe != null && _matchesFilters(recipe, query, include, exclude)) matches.add(recipe);
-          pending.clear();
         }
         reachedEnd = true;
         break;
