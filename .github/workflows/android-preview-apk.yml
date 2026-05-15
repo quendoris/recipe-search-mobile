@@ -113,13 +113,15 @@ jobs:
               draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=r, fill=255)
               return mask
 
-          def draw_hat(canvas, scale=1.0, shadow=True, offset_y=0.0):
+          def draw_hat(canvas, scale=1.0, shadow=True, offset_y=0.0, vertical_scale=1.0):
               size = canvas.size[0]
               draw = ImageDraw.Draw(canvas, 'RGBA')
               s = size * scale
               cx = size / 2
-              top_y = size * (0.22 + offset_y)
-              bottom_y = size * (0.75 + offset_y)
+              raw_top_y = size * (0.22 + offset_y)
+              raw_bottom_y = size * (0.75 + offset_y)
+              top_y = raw_top_y
+              bottom_y = raw_top_y + (raw_bottom_y - raw_top_y) * vertical_scale
               white = (255, 255, 255, 255)
               shade = (222, 201, 238, 190)
 
@@ -168,11 +170,11 @@ jobs:
               full_icon(size, rounded=False).save(target / 'ic_launcher_round.png')
 
           # Adaptive icon foreground with real alpha transparency.
-          # Keep it inside Android's safe zone so launcher masks do not crop the chef hat.
+          # Keep it inside Android's safe zone and preserve the chef hat proportions.
           fg_dir = res / 'drawable-nodpi'
           fg_dir.mkdir(parents=True, exist_ok=True)
           fg = Image.new('RGBA', (432, 432), (0, 0, 0, 0))
-          draw_hat(fg, scale=0.50, shadow=False, offset_y=0.14)
+          draw_hat(fg, scale=0.50, shadow=False, offset_y=0.14, vertical_scale=0.72)
           fg.save(fg_dir / 'ic_launcher_foreground.png')
 
           bg_dir = res / 'drawable'
@@ -185,7 +187,7 @@ jobs:
           (anydpi / 'ic_launcher.xml').write_text(adaptive, encoding='utf-8')
           (anydpi / 'ic_launcher_round.xml').write_text(adaptive, encoding='utf-8')
 
-          print('Launcher icon resources patched: adaptive safe-zone foreground + legacy mipmaps')
+          print('Launcher icon resources patched: adaptive proportional foreground + legacy mipmaps')
           PY
 
       - name: Install dependencies
