@@ -35,7 +35,7 @@ class ConnectedDataset {
   final int sizeBytes;
   final String kind;
 
-  bool get isJsonl => kind == 'JSONL';
+  bool get isSearchable => const {'JSONL', 'JSON', 'CSV', 'TSV'}.contains(kind);
 
   String get sizeLabel {
     final mb = sizeBytes / 1024 / 1024;
@@ -44,12 +44,19 @@ class ConnectedDataset {
   }
 }
 
-class JsonlScanResult {
-  const JsonlScanResult({required this.matches, required this.nextOffset, required this.reachedEnd});
+class DatasetScanResult {
+  const DatasetScanResult({required this.matches, required this.nextOffset, required this.reachedEnd});
 
   final List<RecipeRecord> matches;
   final int nextOffset;
   final bool reachedEnd;
+}
+
+class LineHeaderResult {
+  const LineHeaderResult({required this.line, required this.nextOffset});
+
+  final String line;
+  final int nextOffset;
 }
 
 class RecipeSearchApp extends StatelessWidget {
@@ -59,7 +66,7 @@ class RecipeSearchApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Recipe Search Mobile',
+      title: 'Рецепты',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6D5DF6)),
         useMaterial3: true,
@@ -85,15 +92,15 @@ class RecipeHomeScreen extends StatefulWidget {
 class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   static const int pageSize = 10;
 
-  final queryController = TextEditingController(text: 'рис');
+  final queryController = TextEditingController();
   final includeController = TextEditingController();
   final excludeController = TextEditingController();
   final scrollController = ScrollController();
-  final includeIngredients = <String>['рис'];
-  final excludeIngredients = <String>['орехи'];
+  final includeIngredients = <String>[];
+  final excludeIngredients = <String>[];
   final shownRecipes = <RecipeRecord>[];
   final enabledDatasetPaths = <String>{};
-  final jsonlOffsets = <String, int>{};
+  final datasetOffsets = <String, int>{};
 
   List<ConnectedDataset> availableDatasets = <ConnectedDataset>[];
   RecipeRecord? selectedRecipe;
@@ -101,7 +108,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   String? datasetError;
   double copyProgress = 0;
   int activeDatasetIndex = 0;
-  bool jsonlEndReached = false;
+  bool searchEndReached = false;
   bool searchRunning = false;
   bool libraryLoaded = false;
   bool manageDatasets = false;
@@ -254,7 +261,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       final displayName = picked.name.isEmpty ? sourcePath?.split(Platform.pathSeparator).last ?? 'recipes_dataset' : picked.name;
 
       if (!_isSupportedDatasetFile(displayName) && (sourcePath == null || !_isSupportedDatasetFile(sourcePath))) {
-        throw const FileSystemException('Выберите файл .jsonl, .sqlite, .sqlite3 или .db.');
+        throw const FileSystemException('Выберите файл .jsonl, .json, .csv, .tsv, .sqlite, .sqlite3 или .db.');
       }
       if (sourcePath == null) {
         throw const FileSystemException('Система не дала прямой путь к файлу. Для этого источника понадобится отдельный SAF/URI-режим.');
@@ -308,9 +315,9 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   Future<void> _restartSearch() async {
     setState(() {
       shownRecipes.clear();
-      jsonlOffsets.clear();
+      datasetOffsets.clear();
       activeDatasetIndex = 0;
-      jsonlEndReached = enabledDatasets.isEmpty;
+      searchEndReached = enabledDatasets.isEmpty;
     });
     if (enabledDatasets.isNotEmpty) await _loadMoreResults(reset: true);
   }
@@ -318,7 +325,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
   Future<void> _loadMoreResults({bool reset = false}) async {
     if (searchRunning) return;
     if (enabledDatasets.isEmpty) {
-      setState(() => jsonlEndReached = true);
+      setState(() => searchEndReached = true);
       return;
     }
 
@@ -328,18 +335,18 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
       final matches = <RecipeRecord>[];
       final datasets = enabledDatasets;
       var datasetIndex = reset ? 0 : activeDatasetIndex;
-      if (reset) jsonlOffsets.clear();
+      if (reset) datasetOffsets.clear();
 
       while (matches.length < pageSize && datasetIndex < datasets.length) {
         final activeDataset = datasets[datasetIndex];
-        if (!activeDataset.isJsonl) {
+        if (!activeDataset.isSearchable) {
           datasetIndex += 1;
           continue;
         }
 
-        final scan = await _scanJsonl(
-          file: File(activeDataset.localPath),
-          startOffset: jsonlOffsets[activeDataset.localPath] ?? 0,
+        final scan = await _scanDataset(
+          dataset: activeDataset,
+          startOffset: datasetOffsets[activeDataset.localPath] ?? 0,
           limit: pageSize - matches.length,
           query: queryController.text,
           include: includeIngredients,
@@ -347,7 +354,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
         );
 
         matches.addAll(scan.matches);
-        jsonlOffsets[activeDataset.localPath] = scan.nextOffset;
+        datasetOffsets[activeDataset.localPath] = scan.nextOffset;
         if (scan.reachedEnd) {
           datasetIndex += 1;
         } else {
@@ -359,7 +366,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
         if (reset) shownRecipes.clear();
         shownRecipes.addAll(matches);
         activeDatasetIndex = datasetIndex;
-        jsonlEndReached = datasetIndex >= datasets.length;
+        searchEndReached = datasetIndex >= datasets.length;
         datasetError = null;
       });
     } catch (error) {
@@ -439,7 +446,7 @@ class _RecipeHomeScreenState extends State<RecipeHomeScreen> {
                                   excludeIngredients: excludeIngredients,
                                   recipes: shownRecipes,
                                   searchRunning: searchRunning,
-                                  endReached: jsonlEndReached,
+                                  endReached: searchEndReached,
                                   onQueryChanged: _restartSearch,
                                   onAddInclude: () => _addChip(includeController, includeIngredients),
                                   onAddExclude: () => _addChip(excludeController, excludeIngredients),
@@ -477,7 +484,7 @@ class _AppHeader extends StatelessWidget {
       children: [
         const Flexible(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('RECIPE SEARCH', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2, color: Color(0xFF6D5DF6))),
+            Text('РЕЦЕПТЫ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 2, color: Color(0xFF6D5DF6))),
             SizedBox(height: 4),
             Text('Поиск рецептов', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
           ]),
@@ -486,7 +493,7 @@ class _AppHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-          child: const Text('RU DB', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black54)),
+          child: const Text('JSON/CSV', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black54)),
         ),
       ],
     );
@@ -525,7 +532,7 @@ class DatasetConnectView extends StatelessWidget {
         const _SectionTitle(
           icon: Icons.storage_rounded,
           title: 'Библиотека датасетов',
-          subtitle: 'Добавляйте JSONL/SQLite-файлы один раз. Скопированные датасеты сохраняются в приложении и могут включаться в общий поиск.',
+          subtitle: 'Добавляйте JSONL/JSON/CSV/TSV-файлы один раз. Скопированные датасеты сохраняются в приложении и могут включаться в общий поиск.',
         ),
         const SizedBox(height: 18),
         Container(
@@ -538,7 +545,7 @@ class DatasetConnectView extends StatelessWidget {
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Добавить датасет', style: TextStyle(fontWeight: FontWeight.w800)),
                 SizedBox(height: 3),
-                Text('.jsonl, .sqlite, .sqlite3, .db', style: TextStyle(fontSize: 12, color: Colors.black54)),
+                Text('.jsonl, .json, .csv, .tsv, .sqlite, .sqlite3, .db', style: TextStyle(fontSize: 12, color: Colors.black54)),
               ])),
             ]),
             const SizedBox(height: 16),
@@ -557,7 +564,7 @@ class DatasetConnectView extends StatelessWidget {
         const Text('Доступные датасеты', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
         const SizedBox(height: 10),
         if (availableDatasets.isEmpty)
-          const _HintBox(text: 'Пока нет сохранённых датасетов. Нажмите «Выбрать файл датасета», чтобы добавить первый JSONL-файл.')
+          const _HintBox(text: 'Пока нет сохранённых датасетов. Нажмите «Выбрать файл датасета», чтобы добавить первый файл.')
         else
           ...availableDatasets.map((dataset) => DatasetTile(dataset: dataset, enabled: enabledDatasetPaths.contains(dataset.localPath), onChanged: (value) { onToggleDataset(dataset, value); })),
         const SizedBox(height: 12),
@@ -576,6 +583,7 @@ class DatasetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final note = dataset.isSearchable ? '${dataset.kind} · ${dataset.sizeLabel}' : '${dataset.kind} · ${dataset.sizeLabel} · поиск позже';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -586,7 +594,7 @@ class DatasetTile extends StatelessWidget {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(dataset.originalName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 2),
-          Text('${dataset.kind} · ${dataset.sizeLabel}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+          Text(note, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.black54)),
         ])),
       ]),
     );
@@ -736,8 +744,9 @@ class _DatasetStatusPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final searchableCount = enabledDatasets.where((dataset) => dataset.isSearchable).length;
     final title = enabledDatasets.length == 1 ? enabledDatasets.first.originalName : 'Включено датасетов: ${enabledDatasets.length}';
-    final subtitle = enabledDatasets.length == 1 ? '${enabledDatasets.first.kind} · ${enabledDatasets.first.sizeLabel}' : enabledDatasets.map((dataset) => dataset.originalName).join(', ');
+    final subtitle = enabledDatasets.length == 1 ? '${enabledDatasets.first.kind} · ${enabledDatasets.first.sizeLabel}' : 'Доступно для поиска: $searchableCount из ${enabledDatasets.length}';
     return _Panel(child: Row(children: [
       const _IconBubble(icon: Icons.folder_copy_rounded),
       const SizedBox(width: 12),
@@ -770,8 +779,10 @@ class _ChipEditor extends StatelessWidget {
         const SizedBox(width: 8),
         IconButton.filledTonal(onPressed: onAdd, icon: const Icon(Icons.add_rounded)),
       ]),
-      const SizedBox(height: 8),
-      Wrap(spacing: 8, runSpacing: 8, children: chips.map((item) => _FilterChip(label: item, tone: tone, onRemove: () => onRemove(item))).toList()),
+      if (chips.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: chips.map((item) => _FilterChip(label: item, tone: tone, onRemove: () => onRemove(item))).toList()),
+      ],
     ]);
   }
 }
@@ -867,7 +878,18 @@ class _StepLine extends StatelessWidget {
   Widget build(BuildContext context) => Container(margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: const Color(0xFFF4F6FB), borderRadius: BorderRadius.circular(16)), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [CircleAvatar(radius: 14, backgroundColor: const Color(0xFFEAE5FF), foregroundColor: const Color(0xFF5B45F0), child: Text('$index', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900))), const SizedBox(width: 10), Expanded(child: Text(text, style: const TextStyle(height: 1.35)))]));
 }
 
-Future<JsonlScanResult> _scanJsonl({required File file, required int startOffset, required int limit, required String query, required List<String> include, required List<String> exclude}) async {
+Future<DatasetScanResult> _scanDataset({required ConnectedDataset dataset, required int startOffset, required int limit, required String query, required List<String> include, required List<String> exclude}) async {
+  final file = File(dataset.localPath);
+  return switch (dataset.kind) {
+    'JSONL' => _scanLineRecords(file: file, startOffset: startOffset, limit: limit, query: query, include: include, exclude: exclude, parser: _recipeFromJsonLineBytes),
+    'CSV' => _scanDelimited(file: file, startOffset: startOffset, limit: limit, query: query, include: include, exclude: exclude, delimiter: ','),
+    'TSV' => _scanDelimited(file: file, startOffset: startOffset, limit: limit, query: query, include: include, exclude: exclude, delimiter: '\t'),
+    'JSON' => _scanJsonFile(file: file, startIndex: startOffset, limit: limit, query: query, include: include, exclude: exclude),
+    _ => const DatasetScanResult(matches: <RecipeRecord>[], nextOffset: 0, reachedEnd: true),
+  };
+}
+
+Future<DatasetScanResult> _scanLineRecords({required File file, required int startOffset, required int limit, required String query, required List<String> include, required List<String> exclude, required RecipeRecord? Function(List<int> bytes) parser}) async {
   final raf = await file.open(mode: FileMode.read);
   final matches = <RecipeRecord>[];
   final pending = <int>[];
@@ -879,7 +901,7 @@ Future<JsonlScanResult> _scanJsonl({required File file, required int startOffset
       final chunk = await raf.read(64 * 1024);
       if (chunk.isEmpty) {
         if (pending.isNotEmpty) {
-          final recipe = _recipeFromLineBytes(pending);
+          final recipe = parser(pending);
           if (recipe != null && _matchesFilters(recipe, query, include, exclude)) matches.add(recipe);
         }
         reachedEnd = true;
@@ -888,7 +910,7 @@ Future<JsonlScanResult> _scanJsonl({required File file, required int startOffset
       for (final byte in chunk) {
         offset += 1;
         if (byte == 10) {
-          final recipe = _recipeFromLineBytes(pending);
+          final recipe = parser(pending);
           if (recipe != null && _matchesFilters(recipe, query, include, exclude)) {
             matches.add(recipe);
             if (matches.length >= limit) break;
@@ -902,10 +924,71 @@ Future<JsonlScanResult> _scanJsonl({required File file, required int startOffset
   } finally {
     await raf.close();
   }
-  return JsonlScanResult(matches: matches, nextOffset: offset, reachedEnd: reachedEnd);
+  return DatasetScanResult(matches: matches, nextOffset: offset, reachedEnd: reachedEnd);
 }
 
-RecipeRecord? _recipeFromLineBytes(List<int> bytes) {
+Future<DatasetScanResult> _scanDelimited({required File file, required int startOffset, required int limit, required String query, required List<String> include, required List<String> exclude, required String delimiter}) async {
+  final headerResult = await _readFirstLine(file);
+  if (headerResult == null) return const DatasetScanResult(matches: <RecipeRecord>[], nextOffset: 0, reachedEnd: true);
+  final headers = _parseDelimitedLine(headerResult.line, delimiter).map((item) => item.trim()).toList();
+  final effectiveStart = startOffset <= 0 ? headerResult.nextOffset : startOffset;
+
+  RecipeRecord? parser(List<int> bytes) {
+    var lineBytes = bytes;
+    if (lineBytes.isNotEmpty && lineBytes.last == 13) lineBytes = lineBytes.sublist(0, lineBytes.length - 1);
+    final line = utf8.decode(lineBytes, allowMalformed: true).trim();
+    if (line.isEmpty) return null;
+    final values = _parseDelimitedLine(line, delimiter);
+    final row = <String, dynamic>{};
+    for (var i = 0; i < headers.length && i < values.length; i += 1) {
+      row[headers[i]] = values[i];
+    }
+    return _recipeFromMap(row);
+  }
+
+  return _scanLineRecords(file: file, startOffset: effectiveStart, limit: limit, query: query, include: include, exclude: exclude, parser: parser);
+}
+
+Future<DatasetScanResult> _scanJsonFile({required File file, required int startIndex, required int limit, required String query, required List<String> include, required List<String> exclude}) async {
+  final raw = await file.readAsString(encoding: utf8);
+  final decoded = jsonDecode(raw);
+  final recipes = _recipesFromJson(decoded);
+  final matches = <RecipeRecord>[];
+  var index = startIndex;
+  while (index < recipes.length && matches.length < limit) {
+    final recipe = recipes[index];
+    if (_matchesFilters(recipe, query, include, exclude)) matches.add(recipe);
+    index += 1;
+  }
+  return DatasetScanResult(matches: matches, nextOffset: index, reachedEnd: index >= recipes.length);
+}
+
+Future<LineHeaderResult?> _readFirstLine(File file) async {
+  final raf = await file.open(mode: FileMode.read);
+  final pending = <int>[];
+  var offset = 0;
+  try {
+    while (true) {
+      final chunk = await raf.read(4096);
+      if (chunk.isEmpty) break;
+      for (final byte in chunk) {
+        offset += 1;
+        if (byte == 10) {
+          var lineBytes = pending;
+          if (lineBytes.isNotEmpty && lineBytes.last == 13) lineBytes = lineBytes.sublist(0, lineBytes.length - 1);
+          return LineHeaderResult(line: utf8.decode(lineBytes, allowMalformed: true), nextOffset: offset);
+        }
+        pending.add(byte);
+      }
+    }
+    if (pending.isEmpty) return null;
+    return LineHeaderResult(line: utf8.decode(pending, allowMalformed: true), nextOffset: offset);
+  } finally {
+    await raf.close();
+  }
+}
+
+RecipeRecord? _recipeFromJsonLineBytes(List<int> bytes) {
   if (bytes.isEmpty) return null;
   var lineBytes = bytes;
   if (lineBytes.isNotEmpty && lineBytes.last == 13) lineBytes = lineBytes.sublist(0, lineBytes.length - 1);
@@ -913,34 +996,180 @@ RecipeRecord? _recipeFromLineBytes(List<int> bytes) {
   if (line.isEmpty) return null;
   try {
     final obj = jsonDecode(line);
-    if (obj is! Map<String, dynamic>) return null;
-    return _recipeFromMap(obj);
+    if (obj is! Map) return null;
+    return _recipeFromMap(Map<String, dynamic>.from(obj));
   } catch (_) {
     return null;
   }
 }
 
+List<RecipeRecord> _recipesFromJson(dynamic decoded) {
+  if (decoded is List) {
+    return decoded.whereType<Map>().map((item) => _recipeFromMap(Map<String, dynamic>.from(item))).toList();
+  }
+  if (decoded is Map) {
+    final map = Map<String, dynamic>.from(decoded);
+    for (final key in const ['recipes', 'items', 'data', 'records', 'results', 'rows']) {
+      final value = _valueByAliases(map, [key]);
+      if (value is List) return _recipesFromJson(value);
+    }
+    final recipe = _recipeFromMap(map);
+    if (recipe.title != 'Без названия' || recipe.ingredients.isNotEmpty || recipe.instructions.isNotEmpty) return [recipe];
+  }
+  return const <RecipeRecord>[];
+}
+
 RecipeRecord _recipeFromMap(Map<String, dynamic> obj) {
-  final id = _firstString(obj, ['id', 'recipe_id', 'recipe_no']) ?? 'unknown';
-  final title = _firstString(obj, ['title', 'title_ru', 'name']) ?? 'Без названия';
-  final ingredients = _stringList(obj['ingredients']) ?? _stringList(obj['ingredients_ru']) ?? const <String>[];
-  final instructions = _stringList(obj['instructions']) ?? _stringList(obj['instructions_ru']) ?? const <String>[];
+  final id = _firstStringByAliases(obj, const [
+        'id',
+        'recipe_id',
+        'recipeId',
+        'recipeID',
+        'recipe_no',
+        'recipeNo',
+        'uid',
+        'uuid',
+        'key',
+        'slug',
+        'url',
+        'link',
+        'source_id',
+      ]) ??
+      'unknown';
+  final title = _firstStringByAliases(obj, const [
+        'title',
+        'title_ru',
+        'titleRu',
+        'name',
+        'recipe_name',
+        'recipeName',
+        'recipe_title',
+        'recipeTitle',
+        'headline',
+        'название',
+        'заголовок',
+      ]) ??
+      'Без названия';
+  final ingredients = _firstListByAliases(obj, const [
+        'ingredients',
+        'ingredients_ru',
+        'ingredientsRu',
+        'ingredient',
+        'ingredient_lines',
+        'ingredientLines',
+        'recipeIngredient',
+        'recipe_ingredient',
+        'recipeIngredients',
+        'products',
+        'product_list',
+        'ингредиенты',
+        'состав',
+      ]) ??
+      const <String>[];
+  final instructions = _firstListByAliases(obj, const [
+        'instructions',
+        'instructions_ru',
+        'instructionsRu',
+        'instruction',
+        'steps',
+        'directions',
+        'directions_ru',
+        'method',
+        'preparation',
+        'recipeInstructions',
+        'recipe_instructions',
+        'cooking_steps',
+        'приготовление',
+        'шаги',
+        'рецепт',
+        'описание',
+      ]) ??
+      const <String>[];
   return RecipeRecord(id: id, title: title, ingredients: ingredients, instructions: instructions);
 }
 
-String? _firstString(Map<String, dynamic> obj, List<String> keys) {
-  for (final key in keys) {
-    final value = obj[key];
-    if (value != null) return value.toString();
+String? _firstStringByAliases(Map<String, dynamic> obj, List<String> aliases) {
+  final value = _valueByAliases(obj, aliases);
+  if (value == null) return null;
+  if (value is List && value.isNotEmpty) return value.first.toString().trim();
+  if (value is Map) {
+    final nested = _firstStringByAliases(Map<String, dynamic>.from(value), const ['text', 'name', 'value', 'title']);
+    if (nested != null && nested.isNotEmpty) return nested;
+  }
+  final text = value.toString().trim();
+  return text.isEmpty ? null : text;
+}
+
+List<String>? _firstListByAliases(Map<String, dynamic> obj, List<String> aliases) {
+  final value = _valueByAliases(obj, aliases);
+  return _stringList(value);
+}
+
+dynamic _valueByAliases(Map<String, dynamic> obj, List<String> aliases) {
+  final normalized = <String, dynamic>{};
+  for (final entry in obj.entries) {
+    normalized[_normalizeKey(entry.key.toString())] = entry.value;
+  }
+  for (final alias in aliases) {
+    final key = _normalizeKey(alias);
+    if (normalized.containsKey(key)) return normalized[key];
   }
   return null;
 }
 
 List<String>? _stringList(dynamic value) {
   if (value == null) return null;
-  if (value is List) return value.map((item) => item.toString()).where((item) => item.trim().isNotEmpty).toList();
-  if (value is String) return value.split(RegExp(r'\r?\n')).map((item) => item.trim()).where((item) => item.isNotEmpty).toList();
+  if (value is List) {
+    final result = <String>[];
+    for (final item in value) {
+      if (item is Map) {
+        final nested = _firstStringByAliases(Map<String, dynamic>.from(item), const ['text', 'name', 'value', 'title', 'step', 'instruction']);
+        if (nested != null && nested.trim().isNotEmpty) result.add(nested.trim());
+      } else {
+        final text = item.toString().trim();
+        if (text.isNotEmpty) result.add(text);
+      }
+    }
+    return result;
+  }
+  if (value is Map) {
+    final nested = _firstStringByAliases(Map<String, dynamic>.from(value), const ['text', 'name', 'value', 'title', 'step', 'instruction']);
+    return nested == null ? null : [nested];
+  }
+  if (value is String) {
+    final text = value.trim();
+    if (text.isEmpty) return const <String>[];
+    return text
+        .split(RegExp(r'\r?\n|\s*\|\s*|\s*•\s*'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
   return null;
+}
+
+List<String> _parseDelimitedLine(String line, String delimiter) {
+  final values = <String>[];
+  final buffer = StringBuffer();
+  var inQuotes = false;
+  for (var i = 0; i < line.length; i += 1) {
+    final char = line[i];
+    if (char == '"') {
+      if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
+        buffer.write('"');
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (!inQuotes && char == delimiter) {
+      values.add(buffer.toString());
+      buffer.clear();
+    } else {
+      buffer.write(char);
+    }
+  }
+  values.add(buffer.toString());
+  return values;
 }
 
 bool _matchesFilters(RecipeRecord recipe, String query, List<String> include, List<String> exclude) {
@@ -948,21 +1177,36 @@ bool _matchesFilters(RecipeRecord recipe, String query, List<String> include, Li
   final allText = _normalize(recipe.searchableText);
   final ingredients = recipe.ingredients.map(_normalize).toList();
   final queryOk = queryNorm.isEmpty || allText.contains(queryNorm);
-  final includeOk = include.every((item) => ingredients.any((ingredient) => ingredient.contains(_normalize(item))));
-  final excludeOk = exclude.every((item) => !ingredients.any((ingredient) => ingredient.contains(_normalize(item))));
+  final includeOk = include.every((item) {
+    final normalized = _normalize(item);
+    if (normalized.isEmpty) return true;
+    if (ingredients.isEmpty) return allText.contains(normalized);
+    return ingredients.any((ingredient) => ingredient.contains(normalized));
+  });
+  final excludeOk = exclude.every((item) {
+    final normalized = _normalize(item);
+    if (normalized.isEmpty) return true;
+    if (ingredients.isEmpty) return !allText.contains(normalized);
+    return !ingredients.any((ingredient) => ingredient.contains(normalized));
+  });
   return queryOk && includeOk && excludeOk;
 }
 
 bool _isSupportedDatasetFile(String name) {
   final lower = name.toLowerCase();
-  return lower.endsWith('.jsonl') || lower.endsWith('.sqlite') || lower.endsWith('.sqlite3') || lower.endsWith('.db');
+  return lower.endsWith('.jsonl') || lower.endsWith('.json') || lower.endsWith('.csv') || lower.endsWith('.tsv') || lower.endsWith('.sqlite') || lower.endsWith('.sqlite3') || lower.endsWith('.db');
 }
 
 String _normalize(String value) => value.toLowerCase().replaceAll('ё', 'е').trim();
 
+String _normalizeKey(String value) => _normalize(value).replaceAll(RegExp(r'[\s_\-]+'), '');
+
 String _datasetKind(String name) {
   final lower = name.toLowerCase();
   if (lower.endsWith('.jsonl')) return 'JSONL';
+  if (lower.endsWith('.json')) return 'JSON';
+  if (lower.endsWith('.csv')) return 'CSV';
+  if (lower.endsWith('.tsv')) return 'TSV';
   if (lower.endsWith('.sqlite') || lower.endsWith('.sqlite3') || lower.endsWith('.db')) return 'SQLite';
   return 'dataset';
 }
