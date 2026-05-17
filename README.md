@@ -1,31 +1,34 @@
-# Recipe Search Mobile
+# Рецепты
 
-Android-first mobile recipe search app for large local recipe datasets.
+Android-first приложение для локального поиска по датасетам рецептов.
 
-The project goal is simple: connect a recipe dataset, search recipes by title and ingredients, exclude unwanted ingredients, show the first results quickly, and open a clean recipe view.
+Приложение позволяет подключить файл с рецептами, искать по названию/тексту, добавлять нужные ингредиенты, исключать нежелательные ингредиенты и открывать рецепт в чистом виде.
 
-## Current milestone
+## Возможности
 
-This first skeleton includes:
+- подключение локального датасета через системный выбор файла Android;
+- копирование датасета во внутреннее хранилище приложения;
+- сохранение библиотеки датасетов после перезапуска;
+- включение/выключение нескольких датасетов для общего поиска;
+- поиск по названию, тексту рецепта и ингредиентам;
+- фильтры нужных и исключённых ингредиентов;
+- построчное чтение больших файлов без загрузки всего датасета в память;
+- подгрузка результатов по 10 рецептов;
+- карточка рецепта с ингредиентами и шагами приготовления.
 
-- Flutter app source code.
-- Android-first UI flow.
-- Demo dataset embedded in the app.
-- Dataset connection screen.
-- Search by title/text.
-- Required ingredient chips.
-- Excluded ingredient chips.
-- Paginated results: 10 recipes per page.
-- Recipe detail screen with ingredients and numbered instructions.
+## Датасеты
 
-The next milestone will add real dataset selection and local import:
+Приложение поставляется **без встроенных датасетов**. Пользователь сам выбирает локальный файл с рецептами.
 
-```text
-Choose dataset
-  -> copy JSONL/SQLite into app storage
-  -> show first streamed results
-  -> build local SQLite/FTS index in background
-```
+Поддерживаемые форматы: `.jsonl`, `.json`, `.csv`, `.tsv`. Файлы `.sqlite`, `.sqlite3` и `.db` можно добавить в библиотеку, но полноценный SQLite-поиск будет подключён позже.
+
+Минимально нужны поля:
+
+- название рецепта;
+- ингредиенты;
+- инструкция / шаги приготовления.
+
+Приложение понимает разные варианты названий полей, например `title`, `name`, `recipe_name`, `ingredients`, `recipeIngredient`, `instructions`, `steps`, `directions`, `method`, а также русские варианты вроде `название`, `ингредиенты`, `приготовление`.
 
 ## Run locally
 
@@ -49,22 +52,10 @@ flutter devices
 flutter run -d <device-id>
 ```
 
-## Dataset policy
-
-Large datasets are not committed to this repository.
-
-The real translated Recipe1M-derived dataset can stay local and later be imported by the app or converted into an optimized SQLite database.
-
-Supported target formats planned:
-
-- `.jsonl` for universal streaming import.
-- `.sqlite` / `.db` for fast indexed search.
-
 ## Repository layout
 
 ```text
 lib/                  Flutter app source
-examples/             Tiny demo data only
 docs/                 Architecture and dataset notes
 tools/                Future dataset builders/import helpers
 data/                 Local-only datasets; ignored by Git
