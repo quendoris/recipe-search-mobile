@@ -75,6 +75,27 @@ jobs:
           print(manifest.read_text(encoding='utf-8'))
           PY
 
+      - name: Patch clean release defaults
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          app = Path('lib/app.dart')
+          text = app.read_text(encoding='utf-8')
+          replacements = {
+              "title: 'Recipe Search Mobile'": "title: 'Рецепты'",
+              "final queryController = TextEditingController(text: 'рис');": "final queryController = TextEditingController();",
+              "final includeIngredients = <String>['рис'];": "final includeIngredients = <String>[];",
+              "final excludeIngredients = <String>['орехи'];": "final excludeIngredients = <String>[];",
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f'Missing expected Dart snippet: {old}')
+              text = text.replace(old, new, 1)
+          app.write_text(text, encoding='utf-8')
+          print('Release defaults patched: empty search, empty include filters, empty exclude filters')
+          PY
+
       - name: Patch Android launcher icon
         run: |
           python -m pip install --quiet pillow
